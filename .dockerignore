@@ -1,0 +1,32 @@
+# Version control and local settings
+.git/
+.github/
+.env
+.env.*
+
+# JavaScript dependencies and build artefacts
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+
+# Python environments and generated files
+.venv/
+venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+
+# Terraform state and local tool files
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+
+# Local/editor artefacts
+**/*.log
+.DS_Store
+.idea/
+.vscode/
+tools/

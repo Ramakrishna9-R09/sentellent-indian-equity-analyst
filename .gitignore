@@ -1,0 +1,35 @@
+# Dependencies and build outputs
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local configuration and runtime state
+.env
+.env.local
+*.log
+.DS_Store
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+
+# Editor / generated documents
+.idea/
+.vscode/
+docs/*.pdf
+
+# Downloaded installation files and assessment handout
+tools/
+Sentellent_Hiring_Challenge.pdf

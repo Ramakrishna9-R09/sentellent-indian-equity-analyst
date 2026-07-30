@@ -1,0 +1,3 @@
+github_repository = "YOUR_GITHUB_USERNAME/YOUR_REPOSITORY"
+api_image         = "000000000000.dkr.ecr.ap-south-1.amazonaws.com/sentellent-equity-analyst-dev-api:bootstrap"
+web_image         = "000000000000.dkr.ecr.ap-south-1.amazonaws.com/sentellent-equity-analyst-dev-web:bootstrap"

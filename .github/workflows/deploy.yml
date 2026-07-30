@@ -1,0 +1,103 @@
+name: Deploy AWS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: sentellent-dev-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  deploy:
+    # The first source push can happen before the AWS bootstrap values exist.
+    # Once they are configured, every push to main deploys automatically.
+    if: >-
+      vars.AWS_REGION != '' &&
+      vars.TF_STATE_BUCKET != '' &&
+      vars.TF_LOCK_TABLE != '' &&
+      vars.ECR_API_REPOSITORY != '' &&
+      vars.ECR_WEB_REPOSITORY != ''
+    runs-on: ubuntu-latest
+    environment: development
+    defaults:
+      run:
+        working-directory: infra/environments/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and publish immutable images
+        working-directory: .
+        env:
+          API_REPOSITORY: ${{ vars.ECR_API_REPOSITORY }}
+          WEB_REPOSITORY: ${{ vars.ECR_WEB_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f docker/api.Dockerfile -t "$API_REPOSITORY:$IMAGE_TAG" .
+          docker build --build-arg NEXT_PUBLIC_API_BASE_URL=/api -f docker/web.Dockerfile -t "$WEB_REPOSITORY:$IMAGE_TAG" .
+          docker push "$API_REPOSITORY:$IMAGE_TAG"
+          docker push "$WEB_REPOSITORY:$IMAGE_TAG"
+          echo "API_IMAGE=$API_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "WEB_IMAGE=$WEB_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
+
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform apply
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE }}
+          TF_VAR_github_repository: ${{ github.repository }}
+        run: |
+          terraform init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=sentellent/dev/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$TF_LOCK_TABLE" \
+            -backend-config="encrypt=true"
+          terraform apply -auto-approve \
+            -var="github_repository=$TF_VAR_github_repository" \
+            -var="api_image=$API_IMAGE" \
+            -var="web_image=$WEB_IMAGE"
+
+      - name: Run database migrations on ECS
+        run: |
+          CLUSTER=$(terraform output -raw ecs_cluster_name)
+          TASK_DEFINITION=$(terraform output -raw worker_task_definition_arn)
+          SUBNETS=$(terraform output -json private_subnet_ids | jq -r 'join(",")')
+          SECURITY_GROUP=$(terraform output -raw ecs_security_group_id)
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$CLUSTER" \
+            --task-definition "$TASK_DEFINITION" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUP],assignPublicIp=DISABLED}" \
+            --overrides '{"containerOverrides":[{"name":"worker","command":["alembic","upgrade","head"]}]}' \
+            --query "tasks[0].taskArn" --output text)
+          test "$TASK_ARN" != "None"
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query "tasks[0].containers[0].exitCode" --output text)
+          test "$EXIT_CODE" = "0"
+
+      - name: Roll services and smoke test
+        run: |
+          CLUSTER=$(terraform output -raw ecs_cluster_name)
+          aws ecs update-service --cluster "$CLUSTER" --service "$(terraform output -raw api_service_name)" --force-new-deployment >/dev/null
+          aws ecs update-service --cluster "$CLUSTER" --service "$(terraform output -raw web_service_name)" --force-new-deployment >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$(terraform output -raw api_service_name)" "$(terraform output -raw web_service_name)"
+          LIVE_URL=$(terraform output -raw live_url)
+          curl --fail --retry 6 --retry-delay 10 "$LIVE_URL/health"
+          echo "### Deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "Live URL: $LIVE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image tag: $API_IMAGE" >> "$GITHUB_STEP_SUMMARY"
