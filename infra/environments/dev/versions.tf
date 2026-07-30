@@ -1,5 +1,7 @@
 terraform {
-  required_version = ">= 1.8.0"
+  # S3 backend lockfile metadata is used by the existing remote-state setup.
+  # Terraform 1.11 introduced the use_lockfile backend option.
+  required_version = ">= 1.11.0, < 2.0.0"
   backend "s3" {}
   required_providers {
     aws = {

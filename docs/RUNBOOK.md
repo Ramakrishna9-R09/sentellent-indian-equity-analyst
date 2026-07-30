@@ -11,7 +11,7 @@
 
 1. Create an AWS account/region configuration and a Route53-hosted domain.
 2. Configure GitHub OIDC, then add the repository variables/secrets named in .github/workflows/deploy.yml.
-3. Create secret values in AWS Secrets Manager after Terraform creates the secret containers: database password, Google client ID/secret, session secret, and model-provider key.
+3. Set the `APPLICATION_SECRET_JSON` GitHub repository secret with non-empty `google_client_id`, `google_client_secret`, and `openai_api_key` fields. The deployment writes it to Secrets Manager before ECS services are created; the RDS password remains RDS-managed.
 4. Configure Google OAuth callback URI as https://<domain>/api/auth/google/callback; add both Sentellent test users.
 5. Push a reviewed commit to main. Watch the GitHub Actions deployment summary and verify ECS task stability.
 6. Capture screenshots of ECR images, ECS services/tasks, RDS, EventBridge schedule, CloudFront/ALB, and the passing Actions run.

@@ -56,6 +56,7 @@ resource "aws_iam_role_policy" "github_deploy" {
         "rds:*",
         "s3:*",
         "secretsmanager:*",
+        "sns:*",
         "sts:GetCallerIdentity"
       ]
       Resource = "*"

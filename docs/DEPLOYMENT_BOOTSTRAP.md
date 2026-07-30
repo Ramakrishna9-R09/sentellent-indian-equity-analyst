@@ -1,6 +1,6 @@
 # AWS deployment bootstrap
 
-This one-time sequence creates remote Terraform state, then establishes the OIDC deployment role GitHub Actions uses afterwards. It requires temporary administrator credentials in the intended AWS account; the normal workflow never stores long-lived AWS access keys.
+This one-time sequence creates remote Terraform state, then establishes the OIDC deployment role GitHub Actions uses afterwards. It requires Terraform 1.11 or later and temporary administrator credentials in the intended AWS account; the normal workflow never stores long-lived AWS access keys.
 
 ## 1. Create remote state
 
@@ -25,6 +25,7 @@ terraform init \
   -backend-config="key=sentellent/dev/terraform.tfstate" \
   -backend-config="region=ap-south-1" \
   -backend-config="dynamodb_table=sentellent-terraform-locks" \
+  -backend-config="use_lockfile=true" \
   -backend-config="encrypt=true"
 terraform apply -target=module.registry \
   -var="github_repository=OWNER/REPOSITORY" \
@@ -32,11 +33,11 @@ terraform apply -target=module.registry \
   -var="web_image=placeholder"
 ~~~
 
-Authenticate Docker to ECR, build and push the API and web images using the two repository URLs from Terraform output, then apply the whole dev stack with those immutable image URIs and the GitHub repository name.
+Authenticate Docker to ECR and build/push the API and web images using the two repository URLs from Terraform output. Before creating ECS services, create the data layer and populate the application secret. This prevents ECS tasks from failing during startup because the referenced secret JSON does not yet exist.
 
 ## 3. Populate the application secret
 
-After the dev stack creates the secret container, store a JSON document containing exactly these keys:
+Create a local file named `application-secret.json` containing exactly these keys:
 
 ~~~json
 {
@@ -48,6 +49,22 @@ After the dev stack creates the secret container, store a JSON document containi
 
 The RDS password is generated and managed by RDS. It does not belong in this application secret.
 
+Provision the data layer (which also creates the application-secret container), write the secret value, then apply the remaining stack:
+
+~~~sh
+terraform apply -target=module.data \
+  -var="github_repository=OWNER/REPOSITORY" \
+  -var="api_image=YOUR_API_IMAGE" \
+  -var="web_image=YOUR_WEB_IMAGE"
+aws secretsmanager put-secret-value \
+  --secret-id "$(terraform output -raw application_secret_arn)" \
+  --secret-string file://application-secret.json
+terraform apply \
+  -var="github_repository=OWNER/REPOSITORY" \
+  -var="api_image=YOUR_API_IMAGE" \
+  -var="web_image=YOUR_WEB_IMAGE"
+~~~
+
 ## 4. Connect GitHub Actions
 
 Set GitHub repository variables:
@@ -56,7 +73,12 @@ Set GitHub repository variables:
 - TF_STATE_BUCKET and TF_LOCK_TABLE — the bootstrap outputs
 - ECR_API_REPOSITORY and ECR_WEB_REPOSITORY — full ECR repository URLs
 
-Set the AWS_ROLE_ARN repository secret to the github_deploy_role_arn Terraform output. Push to main; the deploy workflow will build immutable images, apply Terraform, run Alembic as a one-off ECS task, roll both services, and smoke-test the /health endpoint.
+Set these repository secrets:
+
+- `AWS_ROLE_ARN` â€” the `github_deploy_role_arn` Terraform output.
+- `APPLICATION_SECRET_JSON` â€” the compact JSON object above. It is validated and written to Secrets Manager before the workflow creates ECS services.
+
+Push to main; the deploy workflow will build immutable images, prepare the data layer and secret, apply Terraform, run Alembic as a one-off ECS task, roll both services, and smoke-test the /health endpoint.
 
 ## 5. OAuth and reviewer access
 

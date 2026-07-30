@@ -37,6 +37,7 @@ module "edge" {
   vpc_id                = module.network.vpc_id
   public_subnet_ids     = module.network.public_subnet_ids
   alb_security_group_id = module.network.alb_security_group_id
+  enable_cloudfront     = var.enable_cloudfront
 }
 
 module "iam" {
@@ -69,4 +70,30 @@ module "ecs" {
   source_bucket_name         = module.data.source_bucket_name
   task_execution_role_arn    = module.iam.task_execution_role_arn
   application_task_role_arn  = module.iam.application_task_role_arn
+}
+
+module "scheduler" {
+  source                     = "../../modules/scheduler"
+  name                       = local.name
+  tags                       = local.tags
+  cluster_arn                = module.ecs.cluster_arn
+  worker_task_definition_arn = module.ecs.worker_task_definition_arn
+  private_subnet_ids         = module.network.private_subnet_ids
+  ecs_security_group_id      = module.network.ecs_security_group_id
+  task_execution_role_arn    = module.iam.task_execution_role_arn
+  application_task_role_arn  = module.iam.application_task_role_arn
+}
+
+module "observability" {
+  source                  = "../../modules/observability"
+  name                    = local.name
+  tags                    = local.tags
+  region                  = var.aws_region
+  alarm_email             = var.alarm_email
+  ecs_cluster_name        = module.ecs.cluster_name
+  api_service_name        = module.ecs.api_service_name
+  web_service_name        = module.ecs.web_service_name
+  alb_arn_suffix          = module.edge.alb_arn_suffix
+  rds_instance_identifier = module.data.rds_instance_identifier
+  event_rule_name         = module.scheduler.event_rule_name
 }

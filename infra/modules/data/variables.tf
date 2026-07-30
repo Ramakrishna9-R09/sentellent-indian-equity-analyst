@@ -19,7 +19,7 @@ variable "db_allocated_storage" {
 
 variable "db_backup_days" {
   type    = number
-  default = 7
+  default = 0
 }
 
 variable "multi_az" {

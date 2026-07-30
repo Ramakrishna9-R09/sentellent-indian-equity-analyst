@@ -68,6 +68,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.1
       - run: terraform fmt -check -recursive ../..
       - run: terraform init -backend=false
       - run: terraform validate

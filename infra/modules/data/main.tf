@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "source_archive" {
-  bucket_prefix = format("%s-sources-", var.name)
+  bucket_prefix = format("%s-src-", var.name)
   tags          = var.tags
 }
 
@@ -40,7 +40,7 @@ resource "aws_db_instance" "this" {
   max_allocated_storage           = var.db_allocated_storage * 2
   storage_type                    = "gp3"
   engine                          = "postgres"
-  engine_version                  = var.db_engine_version
+  engine_version                  = coalesce(var.db_engine_version, "16.4")
   instance_class                  = var.db_instance_class
   db_name                         = "sentellent"
   username                        = "sentellent"
@@ -56,7 +56,7 @@ resource "aws_db_instance" "this" {
   vpc_security_group_ids          = [var.rds_security_group_id]
   auto_minor_version_upgrade      = true
   copy_tags_to_snapshot           = true
-  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+  enabled_cloudwatch_logs_exports = []
   tags                            = var.tags
 }
 

@@ -55,18 +55,45 @@ jobs:
           echo "WEB_IMAGE=$WEB_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_ENV"
 
       - uses: hashicorp/setup-terraform@v3
-      - name: Terraform apply
+        with:
+          terraform_version: 1.11.1
+      - name: Initialize Terraform and application secret
         env:
           TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
           TF_LOCK_TABLE: ${{ vars.TF_LOCK_TABLE }}
           TF_VAR_github_repository: ${{ github.repository }}
+          APPLICATION_SECRET_JSON: ${{ secrets.APPLICATION_SECRET_JSON }}
         run: |
+          if [ -z "$APPLICATION_SECRET_JSON" ]; then
+            echo "Missing required repository secret: APPLICATION_SECRET_JSON" >&2
+            exit 1
+          fi
+          printf '%s' "$APPLICATION_SECRET_JSON" | jq -e '
+            type == "object" and
+            (.google_client_id | type == "string" and length > 0) and
+            (.google_client_secret | type == "string" and length > 0) and
+            (.openai_api_key | type == "string" and length > 0)
+          ' >/dev/null
           terraform init \
             -backend-config="bucket=$TF_STATE_BUCKET" \
             -backend-config="key=sentellent/dev/terraform.tfstate" \
             -backend-config="region=$AWS_REGION" \
             -backend-config="dynamodb_table=$TF_LOCK_TABLE" \
+            -backend-config="use_lockfile=true" \
             -backend-config="encrypt=true"
+          terraform apply -auto-approve -target=module.data \
+            -var="github_repository=$TF_VAR_github_repository" \
+            -var="api_image=$API_IMAGE" \
+            -var="web_image=$WEB_IMAGE"
+          APPLICATION_SECRET_ARN=$(terraform output -raw application_secret_arn)
+          aws secretsmanager put-secret-value \
+            --secret-id "$APPLICATION_SECRET_ARN" \
+            --secret-string "$APPLICATION_SECRET_JSON" >/dev/null
+
+      - name: Terraform apply
+        env:
+          TF_VAR_github_repository: ${{ github.repository }}
+        run: |
           terraform apply -auto-approve \
             -var="github_repository=$TF_VAR_github_repository" \
             -var="api_image=$API_IMAGE" \
@@ -78,24 +105,46 @@ jobs:
           TASK_DEFINITION=$(terraform output -raw worker_task_definition_arn)
           SUBNETS=$(terraform output -json private_subnet_ids | jq -r 'join(",")')
           SECURITY_GROUP=$(terraform output -raw ecs_security_group_id)
-          TASK_ARN=$(aws ecs run-task \
+          RUN_TASK_RESULT=$(aws ecs run-task \
             --cluster "$CLUSTER" \
             --task-definition "$TASK_DEFINITION" \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SECURITY_GROUP],assignPublicIp=DISABLED}" \
             --overrides '{"containerOverrides":[{"name":"worker","command":["alembic","upgrade","head"]}]}' \
-            --query "tasks[0].taskArn" --output text)
-          test "$TASK_ARN" != "None"
+            --output json)
+          TASK_ARN=$(jq -r '.tasks[0].taskArn // empty' <<< "$RUN_TASK_RESULT")
+          if [ -z "$TASK_ARN" ]; then
+            echo "$RUN_TASK_RESULT" | jq '{failures}'
+            exit 1
+          fi
           aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ARN"
+          aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].{stoppedReason:stoppedReason,stopCode:stopCode,containers:containers[].{name:name,exitCode:exitCode,reason:reason}}' \
+            --output json | jq .
           EXIT_CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK_ARN" --query "tasks[0].containers[0].exitCode" --output text)
           test "$EXIT_CODE" = "0"
 
       - name: Roll services and smoke test
         run: |
           CLUSTER=$(terraform output -raw ecs_cluster_name)
-          aws ecs update-service --cluster "$CLUSTER" --service "$(terraform output -raw api_service_name)" --force-new-deployment >/dev/null
-          aws ecs update-service --cluster "$CLUSTER" --service "$(terraform output -raw web_service_name)" --force-new-deployment >/dev/null
-          aws ecs wait services-stable --cluster "$CLUSTER" --services "$(terraform output -raw api_service_name)" "$(terraform output -raw web_service_name)"
+          API_SERVICE=$(terraform output -raw api_service_name)
+          WEB_SERVICE=$(terraform output -raw web_service_name)
+          aws ecs update-service --cluster "$CLUSTER" --service "$API_SERVICE" --force-new-deployment >/dev/null
+          aws ecs update-service --cluster "$CLUSTER" --service "$WEB_SERVICE" --force-new-deployment >/dev/null
+          if ! aws ecs wait services-stable --cluster "$CLUSTER" --services "$API_SERVICE" "$WEB_SERVICE"; then
+            aws ecs describe-services --cluster "$CLUSTER" --services "$API_SERVICE" "$WEB_SERVICE" \
+              --query 'services[].{service:serviceName,running:runningCount,pending:pendingCount,deployments:deployments[].rolloutState,events:events[0:5].[createdAt,message]}' \
+              --output json | jq .
+            for SERVICE in "$API_SERVICE" "$WEB_SERVICE"; do
+              STOPPED_TASKS=$(aws ecs list-tasks --cluster "$CLUSTER" --service-name "$SERVICE" --desired-status STOPPED --query 'taskArns' --output text)
+              if [ -n "$STOPPED_TASKS" ] && [ "$STOPPED_TASKS" != "None" ]; then
+                aws ecs describe-tasks --cluster "$CLUSTER" --tasks $STOPPED_TASKS \
+                  --query 'tasks[].{taskArn:taskArn,stoppedReason:stoppedReason,stopCode:stopCode,containers:containers[].{name:name,exitCode:exitCode,reason:reason}}' \
+                  --output json | jq .
+              fi
+            done
+            exit 1
+          fi
           LIVE_URL=$(terraform output -raw live_url)
           curl --fail --retry 6 --retry-delay 10 "$LIVE_URL/health"
           echo "### Deployment complete" >> "$GITHUB_STEP_SUMMARY"

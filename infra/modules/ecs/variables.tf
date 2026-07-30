@@ -25,8 +25,3 @@ variable "web_desired_count" {
   type    = number
   default = 1
 }
-
-variable "worker_schedule_expression" {
-  type    = string
-  default = "rate(5 minutes)"
-}

@@ -48,3 +48,20 @@ variable "deletion_protection" {
   type    = bool
   default = false
 }
+
+variable "enable_cloudfront" {
+  type        = bool
+  description = "Keep the public entry point HTTPS-capable for OAuth and secure cookies."
+  default     = true
+
+  validation {
+    condition     = var.enable_cloudfront
+    error_message = "The dev environment requires CloudFront. Disabling it leaves only an HTTP ALB while OAuth, secure cookies, and the smoke test require HTTPS."
+  }
+}
+
+variable "alarm_email" {
+  type        = string
+  description = "Email for CloudWatch alarm notifications. Leave empty to skip."
+  default     = ""
+}

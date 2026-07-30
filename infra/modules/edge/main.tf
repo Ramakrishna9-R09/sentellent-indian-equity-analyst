@@ -63,6 +63,7 @@ resource "aws_lb_listener_rule" "api" {
 }
 
 resource "aws_cloudfront_distribution" "this" {
+  count           = var.enable_cloudfront ? 1 : 0
   enabled         = true
   is_ipv6_enabled = true
   comment         = format("%s public application", var.name)

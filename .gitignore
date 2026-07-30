@@ -29,6 +29,7 @@ terraform.tfstate.*
 .idea/
 .vscode/
 docs/*.pdf
+*.tsbuildinfo
 
 # Downloaded installation files and assessment handout
 tools/
