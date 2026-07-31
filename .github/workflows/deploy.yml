@@ -45,7 +45,7 @@ jobs:
         env:
           API_REPOSITORY: ${{ vars.ECR_API_REPOSITORY }}
           WEB_REPOSITORY: ${{ vars.ECR_WEB_REPOSITORY }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ github.sha }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', github.run_id) || '' }}
         run: |
           docker build -f docker/api.Dockerfile -t "$API_REPOSITORY:$IMAGE_TAG" .
           docker build --build-arg NEXT_PUBLIC_API_BASE_URL=/api -f docker/web.Dockerfile -t "$WEB_REPOSITORY:$IMAGE_TAG" .
