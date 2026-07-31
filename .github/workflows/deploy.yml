@@ -87,7 +87,7 @@ jobs:
             -var="api_image=$API_IMAGE" \
             -var="web_image=$WEB_IMAGE" \
             -var="db_engine_version=${{ vars.DB_ENGINE_VERSION }}" \
-            -var="enable_cloudfront=false"
+            -var="enable_cloudfront=${{ vars.ENABLE_CLOUDFRONT == 'true' }}"
           APPLICATION_SECRET_ARN=$(terraform output -raw application_secret_arn)
           aws secretsmanager put-secret-value \
             --secret-id "$APPLICATION_SECRET_ARN" \
@@ -102,7 +102,7 @@ jobs:
             -var="api_image=$API_IMAGE" \
             -var="web_image=$WEB_IMAGE" \
             -var="db_engine_version=${{ vars.DB_ENGINE_VERSION }}" \
-            -var="enable_cloudfront=false"
+            -var="enable_cloudfront=${{ vars.ENABLE_CLOUDFRONT == 'true' }}"
 
       - name: Run database migrations on ECS
         run: |
