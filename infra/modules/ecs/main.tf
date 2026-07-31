@@ -1,6 +1,8 @@
 locals {
-  app_scheme = var.enable_cloudfront ? "https" : "http"
-  app_url    = format("%s://%s", local.app_scheme, var.cloudfront_domain_name)
+  https_domain = var.domain_name == "" ? "" : replace(var.domain_name, "/^www\\./", "")
+  https_on     = var.enable_cloudfront || local.https_domain != ""
+  app_scheme   = local.https_on ? "https" : "http"
+  app_url      = local.https_domain != "" ? format("https://%s", local.https_domain) : format("%s://%s", local.app_scheme, var.cloudfront_domain_name)
   common_environment = [
     { name = "ENVIRONMENT", value = var.environment },
     { name = "AWS_REGION", value = var.region },
@@ -9,7 +11,7 @@ locals {
     { name = "DATABASE_NAME", value = var.database_name },
     { name = "WEB_APP_URL", value = local.app_url },
     { name = "GOOGLE_REDIRECT_URI", value = format("%s/api/auth/google/callback", local.app_url) },
-    { name = "SESSION_COOKIE_SECURE", value = tostring(var.enable_cloudfront) },
+    { name = "SESSION_COOKIE_SECURE", value = tostring(local.https_on) },
     { name = "DEV_BYPASS_AUTH", value = "false" },
     { name = "NEWS_LOOKBACK_DAYS", value = "14" },
     { name = "NEWS_FEED_URLS", value = "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms,https://www.moneycontrol.com/rss/MCtopnews.xml" },

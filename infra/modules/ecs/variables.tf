@@ -13,6 +13,11 @@ variable "enable_cloudfront" {
   type    = bool
   default = true
 }
+variable "domain_name" {
+  type        = string
+  default     = ""
+  description = "Public domain served over HTTPS on the ALB (no CloudFront). Empty keeps the old scheme."
+}
 variable "database_endpoint" { type = string }
 variable "database_name" { type = string }
 variable "database_master_secret_arn" { type = string }

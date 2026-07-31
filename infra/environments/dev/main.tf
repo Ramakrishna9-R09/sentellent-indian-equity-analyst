@@ -29,6 +29,7 @@ module "data" {
   db_engine_version     = var.db_engine_version
   multi_az              = var.enable_multi_az
   deletion_protection   = var.deletion_protection
+  db_backup_days        = var.db_backup_days
 }
 
 module "edge" {
@@ -38,7 +39,10 @@ module "edge" {
   vpc_id                = module.network.vpc_id
   public_subnet_ids     = module.network.public_subnet_ids
   alb_security_group_id = module.network.alb_security_group_id
+  region                = var.aws_region
   enable_cloudfront     = var.enable_cloudfront
+  domain_name           = var.domain_name
+  manage_dns_in_route53 = var.manage_dns_in_route53
 }
 
 module "iam" {
@@ -65,6 +69,7 @@ module "ecs" {
   web_target_group_arn       = module.edge.web_target_group_arn
   cloudfront_domain_name     = module.edge.cloudfront_domain_name
   enable_cloudfront          = var.enable_cloudfront
+  domain_name                = var.domain_name
   database_endpoint          = module.data.database_endpoint
   database_name              = module.data.database_name
   database_master_secret_arn = module.data.database_master_secret_arn

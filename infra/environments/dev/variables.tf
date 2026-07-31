@@ -49,10 +49,28 @@ variable "deletion_protection" {
   default = false
 }
 
+variable "db_backup_days" {
+  type        = number
+  description = "Number of days to retain automated RDS backups. 0 disables them."
+  default     = 7
+}
+
 variable "enable_cloudfront" {
   type        = bool
   description = "Keep the public entry point HTTPS-capable for OAuth and secure cookies."
   default     = true
+}
+
+variable "domain_name" {
+  type        = string
+  description = "Public domain served over HTTPS directly on the ALB (no CloudFront). Empty disables the HTTPS listener."
+  default     = ""
+}
+
+variable "manage_dns_in_route53" {
+  type        = bool
+  description = "Create a Route53 hosted zone plus ACM-validation and A/ALIAS records. Set false to paste records into the registrar's DNS panel manually."
+  default     = false
 }
 
 variable "alarm_email" {

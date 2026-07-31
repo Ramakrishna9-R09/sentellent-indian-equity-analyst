@@ -1,6 +1,11 @@
 output "live_url" {
-  value = format("%s://%s", var.enable_cloudfront ? "https" : "http", module.edge.cloudfront_domain_name)
+  value = var.domain_name != "" ? format("https://%s", replace(var.domain_name, "/^www\\./", "")) : format("%s://%s", var.enable_cloudfront ? "https" : "http", module.edge.cloudfront_domain_name)
 }
+
+output "live_domain" { value = module.edge.live_domain }
+output "acm_certificate_arn" { value = module.edge.acm_certificate_arn }
+output "acm_validation_cnames" { value = module.edge.acm_validation_cnames }
+output "route53_name_servers" { value = module.edge.route53_name_servers }
 
 output "ecr_api_repository" { value = module.registry.api_url }
 output "ecr_web_repository" { value = module.registry.web_url }

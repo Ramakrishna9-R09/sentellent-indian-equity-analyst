@@ -7,8 +7,8 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 | # | Form field | Status | Evidence |
 |---|---|---|---|
 | 1 | GitHub Repo Link | DONE | `https://github.com/Ramakrishna9-R09/sentellent-indian-equity-analyst` — frontend (`apps/web`), backend (`apps/api`), Dockerfiles, Terraform, workflows, migrations, tests, docs. |
-| 2 | Live Application URL | DONE (HTTP) / BLOCKED (HTTPS) | Live ALB: `http://sentellent-equity-analyst-dev-al-157660511.ap-south-1.elb.amazonaws.com` — `/health`, `/ready`, `/` all 200. HTTPS (CloudFront) blocked on AWS account verification (see 5.1). |
-| 3 | Proof of Cloud | DONE (CI/CD) / PENDING (console shots) | CI + Deploy AWS green on HEAD `c266b57`. AWS console screenshots to be captured after HTTPS resolves for the "final" state; interim ECS/RDS/ECR screenshots available. |
+| 2 | Live Application URL | DONE | Live over HTTPS: `https://sentellent.me` (ACM cert + ALB HTTPS listener, DNS at Namecheap) — `/health`, `/ready`, `/` all 200. |
+| 3 | Proof of Cloud | DONE (CI/CD) / PENDING (console shots) | CI + Deploy AWS green on HEAD. AWS console screenshots to be captured; interim ECS/RDS/ECR screenshots available. |
 
 **Bonus (submit by Aug 3):** on track — core is done; remaining work is external verification + screenshots.
 
@@ -28,7 +28,7 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 
 | Rubric item | Status | Evidence |
 |---|---|---|
-| User logs in via OAuth | DONE (code) / PENDING (console) | Google OpenID Connect (`openid email profile` only). Session-cookie flow verified over HTTP locally. Requires Google Console redirect URI + Test Users to actually sign in. |
+| User logs in via OAuth | DONE (code) / PENDING (console) | Google OpenID Connect (`openid email profile` only). Session-cookie flow verified locally; live login redirects to Google with `redirect_uri=https://sentellent.me/api/auth/google/callback`. Requires Google Console redirect URI + Test Users to actually sign in. |
 | **CRITICAL:** `harisankar@sentellent.com` + `naga@sentellent.com` as Test Users | PENDING | User action in Google Cloud Console OAuth consent screen. |
 | Follow an NSE/BSE ticker → fetch fundamentals + news → chunk → embed → index into vector store | DONE | RELIANCE/TCS ingested: Screener fundamentals, Yahoo price, Google News RSS (67 RELIANCE + 77 TCS articles), chunked + embedded into pgvector. |
 | Store NSE & BSE IDs per stock | DONE | RELIANCE(500325), TCS(532540), HDFCBANK(500180), INFY(500209), ITC(500875). Exposed in `StockResponse`. |
@@ -55,7 +55,7 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 
 | Phase | Coverage | Status |
 |---|---|---|
-| Phase 1 — Foundation | RAG chat live on AWS, one NSE stock ingested, one grounded cited INR answer | DONE (HTTP live; HTTPS pending verification) |
+| Phase 1 — Foundation | RAG chat live on AWS, one NSE stock ingested, one grounded cited INR answer | DONE (HTTPS live) |
 | Phase 2 — Integration | fundamentals + news RSS, chunk/embed/index, LLM per-stock tagging, retrieval + citation tools, cron refresh | DONE |
 | Phase 3 — The Brain | persona memory from chat, persona vector, match/score to persona, anti-hallucination, INR correctness | DONE |
 
@@ -78,13 +78,13 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 
 | # | Blocker | Owner | Unblocks |
 |---|---|---|---|
-| 1 | AWS CloudFront account verification (`AccessDenied: ... account must be verified ... contact AWS Support`) | User checks AWS Support Center/inbox; support case submitted | HTTPS live URL |
-| 2 | Google Console: add redirect URI `http://localhost:8000/api/auth/google/callback` (+ `https://<dist>.cloudfront.net/...` later) and Test Users `harisankar@`, `naga@sentellent.com` | User | Sign-in for demo + reviewers |
+| 1 | ~~AWS CloudFront account verification~~ — resolved: HTTPS served directly on the ALB with an ACM cert for `sentellent.me`, DNS at Namecheap | User | HTTPS live URL (DONE) |
+| 2 | Google Console: add redirect URI `https://sentellent.me/api/auth/google/callback` and Test Users `harisankar@`, `naga@sentellent.com` | User | Sign-in for demo + reviewers |
 
 ## Quick evidence commands
 
 ```sh
-curl -s http://sentellent-equity-analyst-dev-al-157660511.ap-south-1.elb.amazonaws.com/health
+curl -s https://sentellent.me/health
 docker compose up --build
 cd apps/api && python -m pytest -q
 gh run list --limit 3

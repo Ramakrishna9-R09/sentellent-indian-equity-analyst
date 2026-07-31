@@ -32,6 +32,12 @@ async def google_login(request: Request):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Google OAuth is not configured.",
         )
+    logger.info(
+        "Google OAuth login requested: redirect_uri=%s client_id_configured=%s web_app_url=%s",
+        settings.google_redirect_uri,
+        bool(settings.google_client_id),
+        settings.web_app_url,
+    )
     return await oauth.google.authorize_redirect(request, settings.google_redirect_uri)
 
 
