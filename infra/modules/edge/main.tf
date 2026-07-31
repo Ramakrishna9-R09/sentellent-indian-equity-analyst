@@ -50,13 +50,35 @@ resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.web.arn
+  dynamic "default_action" {
+    for_each = [1]
+    content {
+      type = local.enable_https ? "redirect" : "forward"
+      redirect {
+        protocol    = "HTTPS"
+        port        = "443"
+        status_code = "HTTP_301"
+      }
+      target_group_arn = local.enable_https ? null : aws_lb_target_group.web.arn
+    }
   }
 }
 
 resource "aws_lb_listener_rule" "api" {
+  count        = local.enable_https ? 1 : 0
+  listener_arn = aws_lb_listener.https[0].arn
+  priority     = 10
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.api.arn
+  }
+  condition {
+    path_pattern { values = ["/api/*", "/health", "/ready", "/docs", "/openapi.json"] }
+  }
+}
+
+resource "aws_lb_listener_rule" "api_http" {
+  count        = local.enable_https ? 0 : 1
   listener_arn = aws_lb_listener.http.arn
   priority     = 10
   action {
@@ -140,19 +162,6 @@ resource "aws_lb_listener" "https" {
   }
   depends_on = [aws_acm_certificate_validation.this[0]]
   tags       = var.tags
-}
-
-resource "aws_lb_listener_rule" "api_https" {
-  count        = local.enable_https ? 1 : 0
-  listener_arn = aws_lb_listener.https[0].arn
-  priority     = 10
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.api.arn
-  }
-  condition {
-    path_pattern { values = ["/api/*", "/health", "/ready", "/docs", "/openapi.json"] }
-  }
 }
 
 resource "aws_cloudfront_distribution" "this" {
