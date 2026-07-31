@@ -48,6 +48,20 @@ class ResponseCache:
         if len(self._store) > self._max_size:
             self._store.popitem(last=False)
 
+    def set_bytes(
+        self,
+        key: str,
+        body: bytes,
+        status_code: int,
+        headers: dict[str, str],
+        ttl: int | None = None,
+    ) -> None:
+        expires_at = time.time() + (ttl or self._default_ttl)
+        cached = Response(content=body, status_code=status_code, headers=headers)
+        self._store[key] = (expires_at, cached)
+        if len(self._store) > self._max_size:
+            self._store.popitem(last=False)
+
     def invalidate(self, prefix: str = "") -> int:
         if not prefix:
             count = len(self._store)
@@ -88,12 +102,29 @@ class CacheMiddleware(BaseHTTPMiddleware):
             key = cache._make_key(request)
             cached = cache.get(key)
             if cached is not None:
+                cached.headers["Cache-Control"] = CACHE_CONTROL_HEADER
                 return cached
 
         response = await call_next(request)
 
         if cacheable and response.status_code == 200:
-            cache.set(key, response)
-            response.headers["Cache-Control"] = CACHE_CONTROL_HEADER
+            if isinstance(response, Response) and hasattr(response, "body"):
+                cache.set(key, response)
+                response.headers["Cache-Control"] = CACHE_CONTROL_HEADER
+                return response
+            body = b"".join([chunk async for chunk in response.body_iterator])
+            cache.set_bytes(
+                key,
+                body=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+            )
+            fresh = Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+            )
+            fresh.headers["Cache-Control"] = CACHE_CONTROL_HEADER
+            return fresh
 
         return response
