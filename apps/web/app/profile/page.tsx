@@ -86,6 +86,10 @@ export default function ProfilePage() {
             <input
               name="max_debt_to_equity"
               inputMode="decimal"
+              type="number"
+              min="0"
+              max="20"
+              step="0.01"
               defaultValue={saved.max_debt_to_equity ?? ""}
               placeholder="Example: 1.0"
             />

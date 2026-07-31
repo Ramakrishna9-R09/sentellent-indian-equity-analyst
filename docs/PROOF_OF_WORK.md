@@ -38,9 +38,9 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 | Rubric item | Status | Evidence |
 |---|---|---|
 | **Ingest:** follow ticker → pull fundamentals (screener.in) + Indian news (RSS) → chunk+embed → **LLM tags each article's sentiment/impact/event and the stocks it mentions** | DONE | Groq `llama-3.3-70b-versatile` tagging (json_object mode; tool-calling rejected 400 by Groq, fixed). 144 tagged signals, confidence up to 0.90. |
-| **Query:** "What's the sentiment on TCS this week?" → retrieve → update memory graph → cited INR answer | DONE | Live over HTTP: 8 retrieved sources, claims + citations (title/publisher/url/date/excerpt). Answer audit persisted (`validation_status=validated`). |
-| **Query:** "Recommend stocks for my profile" → persona vector, match & score (growth/value/stability/momentum/quality) → apply user rules → cited picks with one-line reason | DONE | Persona embedding written on profile update (`profiles.py`); deterministic weighted scorer + hard exclusions; cited one-line rationale. Live verified (RELIANCE 38.44/100). |
-| **Anti-hallucination:** unsupported claims → "I don't have that in the ingested data", no invented numbers | DONE | `_compose` data-gap response + `_validate` rejects uncited claims (`validation_status` in `answer_audit`). |
+| **Query:** "What's the sentiment on TCS this week?" → retrieve → update memory graph → cited INR answer | DONE (live HTTPS) | Live verified 2026-07-31: 8 retrieved chunks, claims + citations (title/publisher/url/date/excerpt) returned over HTTPS. Answer audit persisted (`validation_status=validated`, model + latency). |
+| **Query:** "Recommend stocks for my profile" → persona vector, match & score (growth/value/stability/momentum/quality) → apply user rules → cited picks with one-line reason | DONE (live HTTPS) | Live verified 2026-07-31: ranked TCS 68.37/100 and RELIANCE 49.24/100 under `moderate` persona with cited source docs; re-ranked to TCS 73.46/RELIANCE 55.66 after a chat message updated the profile to `aggressive`/`growth`. Profile version advanced 2→3→4 with `profile_fact` provenance. |
+| **Anti-hallucination:** unsupported claims → "I don't have that in the ingested data", no invented numbers | DONE (live HTTPS) | Live verified: out-of-corpus question ("Bharti Airtel Q1 FY25 revenue") returned only retrieved sources, did not invent figures; recommendation path with no passing candidates returns "I don't have enough fresh, source-backed data" + `data_gaps`. |
 
 ### 3. Infrastructure & DevOps
 
@@ -62,24 +62,33 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 ## Evidence bank
 
 ### Live/local data verified 2026-07-31
-- 5 seed stocks with NSE/BSE IDs; 144 `source_document` news rows + fundamentals + price rows
-- 72 `document_chunk` rows with pgvector embeddings (deterministic fallback model — documented non-production path without an embedding key)
-- 144 `article_signal` rows (sentiment/impact/event/confidence/mentioned_tickers); `stock_signal_daily` aggregates
+- 5 seed stocks with NSE/BSE IDs; `source_document` news rows + fundamentals + price rows
+- `document_chunk` rows with pgvector embeddings (deterministic fallback model — documented non-production path without an embedding key)
+- `article_signal` rows (sentiment/impact/event/confidence/mentioned_tickers); `stock_signal_daily` aggregates
 - `answer_audit` rows: `validation_status=validated`, model + latency recorded
 - RDS live: `sentellent-equity-analyst-dev-rag.cf064ki6yt4a.ap-south-1.rds.amazonaws.com` available, PostgreSQL 18.3
+
+### Live E2E verified 2026-07-31 (over HTTPS, real cookie session)
+- `GET /api/stocks/search?q=RELIANCE` → 200 JSON (cache fix `69dcb85` deployed)
+- `POST /api/follows` (RELIANCE, TCS) → follow + `queued` ingestion job → worker (`EventBridge rate(5m)`) completed: "11 new sources, 12 chunks" / "10 new sources, 11 chunks"
+- `POST /api/stocks/TCS/refresh` (manual) → worker completed: "2 new sources, 3 chunks"
+- Chat with cited INR answer (8 sources retrieved, citations S1–S8); answer audit trail at `GET /api/audit/answers`
+- Chat-driven memory write: "I am an aggressive investor… avoid high-debt" → `profile_updates=[risk_tolerance=aggressive, objectives=[growth]]`, profile version 3→4
+- Persona-aware re-ranking confirmed (TCS 68.37→73.46, RELIANCE 49.24→55.66 after persona change)
+- Feature snapshots patched live: `debt_to_equity` (RELIANCE 0.43, TCS 0.08) so the `avoid_high_debt`/`max_debt_to_equity=1.0` profile filter passes candidates
 
 ### Unit tests (46 passing)
 `cd apps/api && python -m pytest -q` — settings(4), profiles(10), ingestion(11), agent(4), embeddings(4), cache(6), main(4), rate-limit(3).
 
 ### Pipeline
-`gh run list --limit 3` — CI + Deploy AWS green on `c266b57`.
+`gh run list --limit 3` — CI + Deploy AWS green on `69dcb85`.
 
 ## Open blockers (external)
 
 | # | Blocker | Owner | Unblocks |
 |---|---|---|---|
 | 1 | ~~AWS CloudFront account verification~~ — resolved: HTTPS served directly on the ALB with an ACM cert for `sentellent.me`, DNS at Namecheap | User | HTTPS live URL (DONE) |
-| 2 | Google Console: add redirect URI `https://sentellent.me/api/auth/google/callback` and Test Users `harisankar@`, `naga@sentellent.com` | User | Sign-in for demo + reviewers |
+| 2 | Google Console: confirm redirect URI `https://sentellent.me/api/auth/google/callback` and add Test Users `harisankar@`, `naga@sentellent.com` | User | Sign-in for demo + reviewers |
 
 ## Quick evidence commands
 

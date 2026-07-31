@@ -13,7 +13,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || "Request failed (" + response.status + ")");
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map((item: { msg?: string }) => item.msg || String(item)).join("; ")
+      : body.detail;
+    throw new Error(detail || "Request failed (" + response.status + ")");
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
