@@ -51,8 +51,8 @@ variable "deletion_protection" {
 
 variable "db_backup_days" {
   type        = number
-  description = "Number of days to retain automated RDS backups. 0 disables them."
-  default     = 7
+  description = "Number of days to retain automated RDS backups. 0 disables them. Free tier max is 1."
+  default     = 1
 }
 
 variable "enable_cloudfront" {
