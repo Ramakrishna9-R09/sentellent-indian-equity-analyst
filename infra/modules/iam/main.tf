@@ -24,7 +24,7 @@ data "aws_iam_policy_document" "github_assume_role" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = flatten(concat(
+      values = flatten(concat(
         [
           format("repo:%s:ref:refs/heads/main", var.github_repository),
           format("repo:%s:environment:*", var.github_repository),

@@ -53,6 +53,9 @@ def test_intent_detection_recommendation() -> None:
     class MockDB:
         def execute(self, query):
             return MagicMock()
+
+        def scalars(self, query):
+            return []
     mock_db = MockDB()
 
     state: ResearchState = {
@@ -71,6 +74,9 @@ def test_intent_detection_research() -> None:
     class MockDB:
         def execute(self, query):
             return MagicMock()
+
+        def scalars(self, query):
+            return []
     mock_db = MockDB()
 
     state: ResearchState = {
