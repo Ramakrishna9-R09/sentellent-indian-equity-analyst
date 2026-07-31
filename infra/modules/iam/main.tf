@@ -24,7 +24,12 @@ data "aws_iam_policy_document" "github_assume_role" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [format("repo:%s:ref:refs/heads/main", var.github_repository)]
+      values   = concat(
+        [format("repo:%s:ref:refs/heads/main", var.github_repository)],
+        [for repo in [split("/", var.github_repository)] :
+          format("repo:%s@*/%s@*:ref:refs/heads/main", repo[0], repo[1])
+        ],
+      )
     }
   }
 }
