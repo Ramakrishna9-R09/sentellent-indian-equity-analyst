@@ -262,7 +262,7 @@ export function Dashboard() {
                     <div className="citations">
                       <strong>Sources</strong>
                       {entry.reply.citations.map((citation) => (
-                        <a href={citation.url} key={citation.id} target="_blank" rel="noreferrer">
+                        <a href={"/sources/" + citation.source_document_id} key={citation.id} rel="noreferrer">
                           <span>[{citation.id}]</span>
                           <div>
                             <b>{citation.title}</b>

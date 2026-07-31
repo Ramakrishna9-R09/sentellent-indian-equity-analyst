@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -14,6 +16,8 @@ from app.services.auth import (
     oauth,
     revoke_session,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 settings = get_settings()
@@ -39,6 +43,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         token = await oauth.google.authorize_access_token(request)
         userinfo = token.get("userinfo") or await oauth.google.userinfo(token=token)
     except Exception as exc:
+        logger.exception("Google OAuth callback failed")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OAuth callback failed") from exc
     email = userinfo.get("email")
     subject = userinfo.get("sub")

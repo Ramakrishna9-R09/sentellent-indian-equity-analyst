@@ -79,3 +79,15 @@ export type Profile = {
     created_at: string;
   }[];
 };
+
+export type SourceDetail = {
+  id: string;
+  type: string;
+  publisher: string;
+  title: string;
+  url: string;
+  published_at?: string | null;
+  retrieved_at?: string | null;
+  excerpt?: string | null;
+  content?: string | null;
+};

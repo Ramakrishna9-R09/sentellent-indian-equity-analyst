@@ -31,6 +31,10 @@ export default function ProfilePage() {
         objectives: String(form.get("objectives") || "")
           .split(",")
           .map((item) => item.trim())
+          .filter(Boolean),
+        excluded_sectors: String(form.get("excluded_sectors") || "")
+          .split(",")
+          .map((item) => item.trim())
           .filter(Boolean)
       });
       setProfile(next);
@@ -89,6 +93,10 @@ export default function ProfilePage() {
           <label className="checkbox-label">
             <input name="avoid_high_debt" type="checkbox" defaultChecked={Boolean(saved.avoid_high_debt)} />
             Exclude high-debt companies
+          </label>
+          <label className="full-width-field">
+            Excluded sectors (comma separated)
+            <input name="excluded_sectors" defaultValue={(saved.excluded_sectors || []).join(", ")} placeholder="e.g. Tobacco, Gambling" />
           </label>
           <button className="button button-primary" disabled={saving}>{saving ? "Saving..." : "Save profile"}</button>
         </form>

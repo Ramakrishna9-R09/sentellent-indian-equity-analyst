@@ -126,13 +126,27 @@ input:focus, textarea:focus, select:focus { outline: 3px solid #cbe6ff; border-c
 .profile-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px; }
 .form-grid label { display: grid; gap: 7px; font-size: 13px; font-weight: 700; color: var(--muted); }
-.checkbox-label { grid-template-columns: auto 1fr; align-items: center; }
+.checkbox-label { grid-column: 1 / -1; grid-template-columns: auto 1fr; align-items: center; }
+.full-width-field { grid-column: 1 / -1; }
 .form-grid .button { width: max-content; }
 .profile-grid .panel { padding: 24px; }
 .fact-list { display: grid; gap: 8px; }
 .fact { display: grid; gap: 4px; padding: 11px; border: 1px solid var(--line); border-radius: 8px; }
 .fact strong { text-transform: capitalize; font-size: 13px; }
 .fact span, .fact small { color: var(--muted); font-size: 13px; }
+.source-detail { padding: 24px; }
+.source-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; padding: 16px; background: #f8fafc; border-radius: 10px; margin-bottom: 20px; }
+.source-meta-item { display: grid; gap: 4px; }
+.source-meta-item strong { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.source-meta-item span { font-size: 14px; color: var(--ink); }
+.source-section { margin-bottom: 24px; }
+.source-section h2 { margin: 0 0 10px; font-size: 16px; color: var(--navy); }
+.source-excerpt { color: var(--muted); line-height: 1.6; font-style: italic; padding: 12px; border-left: 3px solid var(--blue); background: #f8fafc; border-radius: 0 8px 8px 0; }
+.source-content { line-height: 1.7; color: var(--ink); }
+.source-content p { margin: 0 0 12px; }
+.source-link { padding-top: 16px; border-top: 1px solid var(--line); }
+.source-link a { color: var(--blue); font-weight: 700; text-decoration: none; }
+.source-link a:hover { text-decoration: underline; }
 
 @media (max-width: 920px) {
   .hero, .workspace, .profile-grid { grid-template-columns: 1fr; display: grid; }

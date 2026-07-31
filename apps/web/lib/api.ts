@@ -1,4 +1,4 @@
-import type { ChatReply, Follow, IngestionJob, Profile, Stock, User } from "./types";
+import type { ChatReply, Follow, IngestionJob, Profile, SourceDetail, Stock, User } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
@@ -39,6 +39,7 @@ export const api = {
   profile: () => request<Profile>("/profile"),
   patchProfile: (patch: Record<string, unknown>) =>
     request<Profile>("/profile", { method: "PATCH", body: JSON.stringify(patch) }),
+  getSource: (sourceId: string) => request<SourceDetail>("/sources/" + sourceId),
   logout: () => request<void>("/auth/logout", { method: "POST" })
 };
 

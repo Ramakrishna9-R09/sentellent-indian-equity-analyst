@@ -4,12 +4,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import text
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.routers import auth, chat, profile, stocks
+from app.routers import audit, auth, chat, profile, stocks
+from app.services.cache import CacheMiddleware
+from app.services.rate_limit import RateLimitMiddleware
 from app.services.stocks import ensure_seed_stocks
 
 settings = get_settings()
@@ -42,11 +44,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
+app.add_middleware(CacheMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(stocks.router, prefix=settings.api_prefix)
 app.include_router(profile.router, prefix=settings.api_prefix)
 app.include_router(chat.router, prefix=settings.api_prefix)
 app.include_router(chat.source_router, prefix=settings.api_prefix)
+app.include_router(audit.router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["health"])

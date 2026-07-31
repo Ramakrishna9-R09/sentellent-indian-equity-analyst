@@ -117,3 +117,24 @@ class ProfilePatch(BaseModel):
     max_debt_to_equity: float | None = Field(default=None, ge=0, le=20)
     horizon: str | None = Field(default=None, max_length=64)
     excluded_sectors: list[str] | None = None
+
+
+class AnswerAuditResponse(BaseModel):
+    id: UUID
+    request_id: str
+    user_id: UUID
+    thread_id: UUID | None = None
+    question: str
+    retrieved_chunk_ids: list[str]
+    cited_source_ids: list[str]
+    validation_status: str
+    model_name: str
+    latency_ms: int
+    created_at: datetime
+
+
+class AnswerAuditListResponse(BaseModel):
+    items: list[AnswerAuditResponse]
+    total: int
+    page: int
+    page_size: int
