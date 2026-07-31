@@ -225,6 +225,7 @@ class ArticleSignal(Timestamped, Base):
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
     supporting_excerpt: Mapped[str] = mapped_column(Text, nullable=False)
+    mentioned_tickers: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
 
 
 class StockSignalDaily(Timestamped, Base):

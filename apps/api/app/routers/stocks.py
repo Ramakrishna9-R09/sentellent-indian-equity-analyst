@@ -25,6 +25,8 @@ def stock_response(stock: Stock) -> StockResponse:
         symbol=stock.symbol,
         exchange=stock.exchange,
         company_name=stock.company_name,
+        nse_id=stock.nse_id,
+        bse_id=stock.bse_id,
         sector=stock.sector,
         yfinance_symbol=stock.yfinance_symbol,
     )

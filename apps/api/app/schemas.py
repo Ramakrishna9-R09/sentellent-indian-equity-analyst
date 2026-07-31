@@ -19,6 +19,8 @@ class StockResponse(BaseModel):
     symbol: str
     exchange: str
     company_name: str
+    nse_id: str | None = None
+    bse_id: str | None = None
     sector: str | None = None
     yfinance_symbol: str | None = None
 

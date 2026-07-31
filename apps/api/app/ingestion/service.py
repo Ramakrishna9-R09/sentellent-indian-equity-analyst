@@ -40,12 +40,22 @@ class ArticleTag(BaseModel):
     event_type: str = Field(max_length=64)
     confidence: float = Field(ge=0, le=1)
     supporting_excerpt: str = Field(min_length=1, max_length=500)
+    mentioned_tickers: list[str] = Field(default_factory=list, max_length=12)
 
     @field_validator("confidence", mode="before")
     @classmethod
     def coerce_confidence(cls, value):
         if isinstance(value, str):
             return float(value)
+        return value
+
+    @field_validator("mentioned_tickers", mode="before")
+    @classmethod
+    def coerce_mentioned_tickers(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
         return value
 
 
@@ -83,6 +93,58 @@ def _sentiment_score(sentiment: str) -> Decimal:
     }.get(sentiment, Decimal("0"))
 
 
+_TICKER_ALIASES = {
+    "reliance": "RELIANCE",
+    "reliance industries": "RELIANCE",
+    "tcs": "TCS",
+    "tata consultancy": "TCS",
+    "hdfc bank": "HDFCBANK",
+    "hdfcbank": "HDFCBANK",
+    "infosys": "INFY",
+    "infy": "INFY",
+    "itc": "ITC",
+    "hcl": "HCLTECH",
+    "hcltech": "HCLTECH",
+    "wipro": "WIPRO",
+    "tech mahindra": "TECHM",
+    "techm": "TECHM",
+    "lti": "LTIM",
+    "ltimindtree": "LTIM",
+    "larsen": "LT",
+    "lt": "LT",
+    "bajaj finance": "BAJFINANCE",
+    "bajaj finserv": "BAJAJFINSV",
+    "maruti": "MARUTI",
+    "sbi": "SBIN",
+    "state bank of india": "SBIN",
+    "hul": "HINDUNILVR",
+    "hindustan unilever": "HINDUNILVR",
+    "tata motors": "TATAMOTORS",
+    "adani enterprises": "ADANIENT",
+    "adani": "ADANIENT",
+    "asian paints": "ASIANPAINT",
+    "bharti airtel": "BHARTIARTL",
+    "airtel": "BHARTIARTL",
+    "titan": "TITAN",
+    "nestle": "NESTLEIND",
+    "axis bank": "AXISBANK",
+    "icici bank": "ICICIBANK",
+    "kotak": "KOTAKBANK",
+    "sun pharma": "SUNPHARMA",
+    "cipla": "CIPLA",
+    "dr reddy": "DRREDDY",
+}
+
+
+def _mentioned_tickers(payload: SourcePayload) -> list[str]:
+    text_value = f"{payload.title} {payload.content}".lower()
+    found: list[str] = []
+    for alias, symbol in _TICKER_ALIASES.items():
+        if alias in text_value and symbol not in found:
+            found.append(symbol)
+    return found
+
+
 def _heuristic_article_tag(payload: SourcePayload) -> ArticleTag:
     text_value = f"{payload.title} {payload.content}".lower()
     positives = ("growth", "profit", "beats", "gain", "upbeat", "order win", "dividend", "buyback")
@@ -105,6 +167,7 @@ def _heuristic_article_tag(payload: SourcePayload) -> ArticleTag:
         event_type=event_type,
         confidence=0.55,
         supporting_excerpt=(payload.excerpt or payload.content)[:480],
+        mentioned_tickers=_mentioned_tickers(payload),
     )
 
 
@@ -134,7 +197,9 @@ def tag_article(payload: SourcePayload) -> ArticleTag:
             "Classify this Indian-market article. Return ONLY a JSON object with exactly these keys: "
             "sentiment (one of positive|neutral|negative|mixed), impact (one of low|medium|high), "
             "event_type (short label), confidence (a number between 0 and 1), "
-            "supporting_excerpt (a short quoted sentence from the article). "
+            "supporting_excerpt (a short quoted sentence from the article), "
+            'mentioned_tickers (an array of uppercase NSE ticker symbols of the stocks the article '
+            "talks about, e.g. [\"RELIANCE\", \"TCS\"], empty array if none). "
             f"Title: {payload.title}\nContent: {payload.content[:6000]}"
         )
         raw = model.invoke(prompt).content
@@ -357,6 +422,7 @@ def _store_article_signal(
             event_type=tag.event_type,
             confidence=Decimal(str(tag.confidence)),
             supporting_excerpt=tag.supporting_excerpt,
+            mentioned_tickers=tag.mentioned_tickers,
         )
     )
     signal_day = (payload.published_at or _utcnow()).date()

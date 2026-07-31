@@ -10,6 +10,8 @@ SEED_STOCKS = (
         "symbol": "RELIANCE",
         "exchange": "NSE",
         "company_name": "Reliance Industries Limited",
+        "nse_id": "RELIANCE",
+        "bse_id": "500325",
         "yfinance_symbol": "RELIANCE.NS",
         "sector": "Energy",
     },
@@ -17,6 +19,8 @@ SEED_STOCKS = (
         "symbol": "TCS",
         "exchange": "NSE",
         "company_name": "Tata Consultancy Services Limited",
+        "nse_id": "TCS",
+        "bse_id": "532540",
         "yfinance_symbol": "TCS.NS",
         "sector": "Information Technology",
     },
@@ -24,6 +28,8 @@ SEED_STOCKS = (
         "symbol": "HDFCBANK",
         "exchange": "NSE",
         "company_name": "HDFC Bank Limited",
+        "nse_id": "HDFCBANK",
+        "bse_id": "500180",
         "yfinance_symbol": "HDFCBANK.NS",
         "sector": "Financial Services",
     },
@@ -31,6 +37,8 @@ SEED_STOCKS = (
         "symbol": "INFY",
         "exchange": "NSE",
         "company_name": "Infosys Limited",
+        "nse_id": "INFY",
+        "bse_id": "500209",
         "yfinance_symbol": "INFY.NS",
         "sector": "Information Technology",
     },
@@ -38,6 +46,8 @@ SEED_STOCKS = (
         "symbol": "ITC",
         "exchange": "NSE",
         "company_name": "ITC Limited",
+        "nse_id": "ITC",
+        "bse_id": "500875",
         "yfinance_symbol": "ITC.NS",
         "sector": "Consumer Defensive",
     },
@@ -53,6 +63,15 @@ def ensure_seed_stocks(db: Session) -> None:
         )
         if existing is None:
             db.add(Stock(**payload))
+        else:
+            changed = False
+            for key in ("nse_id", "bse_id", "company_name", "yfinance_symbol", "sector"):
+                value = payload.get(key)
+                if value and getattr(existing, key) != value:
+                    setattr(existing, key, value)
+                    changed = True
+            if changed:
+                db.add(existing)
     db.commit()
 
 
