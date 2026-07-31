@@ -1,0 +1,98 @@
+# Render Blueprint for Sentellent Indian Equity Analyst
+#
+# Deploy: connect this repository to Render (New > Blueprint).
+# After first deploy, set the "Set in dashboard" env vars (see comments below),
+# then manually redeploy the web service.
+#
+# Services:
+#   sentellent-db   Render Postgres (free)
+#   sentellent-api  FastAPI + uvicorn (Docker)
+#   sentellent-web  Next.js standalone (Docker)
+#
+# Architecture note: the web service proxies /api/* to the API service at
+# runtime via API_PROXY_TARGET (a Next.js rewrite). The browser only ever talks
+# to the web origin, so cookies + Google OAuth redirect stay same-site.
+
+databases:
+  - name: sentellent-db
+    plan: free
+
+services:
+  - type: web
+    name: sentellent-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    startCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sentellent-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: render
+      - key: DEV_BYPASS_AUTH
+        value: "false"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: NEWS_FEED_URLS
+        value: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms,https://www.moneycontrol.com/rss/MCtopnews.xml"
+      - key: NEWS_LOOKBACK_DAYS
+        value: "14"
+      - key: EMBEDDING_DIMENSIONS
+        value: "1536"
+      - key: SESSION_SECRET
+        generateValue: true
+      # --- Secrets: set these in the Render dashboard (sync: false) ---
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # --- URLs: fill after the web service gets its onrender.com URL ---
+      - key: WEB_APP_URL
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+
+  - type: web
+    name: sentellent-web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: docker/web.Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      # Point at the sentellent-api URL, e.g.
+      # https://sentellent-api.onrender.com  (Set in dashboard after first deploy)
+      - key: API_PROXY_TARGET
+        sync: false
+
+  - type: worker
+    name: sentellent-worker
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: docker/api.Dockerfile
+    dockerContext: .
+    startCommand: python -m app.worker --poll-seconds 60
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sentellent-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: render
+      - key: NEWS_FEED_URLS
+        value: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms,https://www.moneycontrol.com/rss/MCtopnews.xml"
+      - key: NEWS_LOOKBACK_DAYS
+        value: "14"
+      - key: EMBEDDING_DIMENSIONS
+        value: "1536"
+      - key: GROQ_API_KEY
+        sync: false

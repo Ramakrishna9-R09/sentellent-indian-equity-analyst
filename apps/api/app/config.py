@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     @property
     def resolved_database_url(self) -> str:
         if self.database_url:
+            if self.database_url.startswith("postgres://"):
+                return self.database_url.replace("postgres://", "postgresql+psycopg://", 1)
             return self.database_url
         return (
             f"postgresql+psycopg://{self.database_user}:{self.database_password}"
