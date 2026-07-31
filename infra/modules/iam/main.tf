@@ -55,6 +55,7 @@ resource "aws_iam_role_policy" "github_deploy" {
         "application-autoscaling:*",
         "cloudfront:*",
         "cloudwatch:*",
+        "dynamodb:*",
         "ec2:*",
         "ecr:*",
         "ecs:*",
