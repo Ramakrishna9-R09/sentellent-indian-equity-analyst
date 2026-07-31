@@ -134,8 +134,6 @@ jobs:
           CLUSTER=$(terraform output -raw ecs_cluster_name)
           API_SERVICE=$(terraform output -raw api_service_name)
           WEB_SERVICE=$(terraform output -raw web_service_name)
-          aws ecs update-service --cluster "$CLUSTER" --service "$API_SERVICE" --force-new-deployment >/dev/null
-          aws ecs update-service --cluster "$CLUSTER" --service "$WEB_SERVICE" --force-new-deployment >/dev/null
           if ! aws ecs wait services-stable --cluster "$CLUSTER" --services "$API_SERVICE" "$WEB_SERVICE"; then
             aws ecs describe-services --cluster "$CLUSTER" --services "$API_SERVICE" "$WEB_SERVICE" \
               --query 'services[].{service:serviceName,running:runningCount,pending:pendingCount,deployments:deployments[].rolloutState,events:events[0:5].[createdAt,message]}' \
