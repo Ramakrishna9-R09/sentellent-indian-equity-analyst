@@ -16,11 +16,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "article_signal",
-        sa.Column("mentioned_tickers", JSONB, nullable=True),
-    )
+    bind = op.get_bind()
+    columns = [col["name"] for col in sa.inspect(bind).get_columns("article_signal")]
+    if "mentioned_tickers" not in columns:
+        op.add_column("article_signal", sa.Column("mentioned_tickers", JSONB, nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("article_signal", "mentioned_tickers")
+    bind = op.get_bind()
+    columns = [col["name"] for col in sa.inspect(bind).get_columns("article_signal")]
+    if "mentioned_tickers" in columns:
+        op.drop_column("article_signal", "mentioned_tickers")
