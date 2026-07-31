@@ -119,6 +119,20 @@ class ScreenerFundamentalsConnector:
         ]
 
 
+_FOREIGN_LOOKALIKE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\breliance\s*,?\s*inc\.?\b", re.IGNORECASE),
+    re.compile(r"\breliance\s*steel\b", re.IGNORECASE),
+    re.compile(r"\breliance\s*&?\s*aluminum\b", re.IGNORECASE),
+    re.compile(r"\bNYSE\b[^\n]{0,80}\$\s?\d", re.IGNORECASE),
+    re.compile(r"\bNASDAQ\b[^\n]{0,80}\$\s?\d", re.IGNORECASE),
+)
+
+
+def _is_foreign_lookalike(title: str, summary: str) -> bool:
+    haystack = f"{title} {summary}"
+    return any(pattern.search(haystack) for pattern in _FOREIGN_LOOKALIKE_PATTERNS)
+
+
 class RSSNewsConnector:
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -149,6 +163,8 @@ class RSSNewsConnector:
                 summary = BeautifulSoup(str(entry.get("summary", "")), "html.parser").get_text(
                     " ", strip=True
                 )
+                if _is_foreign_lookalike(title, summary):
+                    continue
                 haystack = f"{title} {summary}".lower()
                 if not any(alias and alias in haystack for alias in aliases):
                     continue

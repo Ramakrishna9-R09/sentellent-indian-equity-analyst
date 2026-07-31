@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from app.ingestion.service import _chunk_text, _heuristic_article_tag, _sentiment_score
-from app.ingestion.sources import SourcePayload, parse_indian_number
+from app.ingestion.sources import SourcePayload, _is_foreign_lookalike, parse_indian_number
 
 
 def test_chunker_is_deterministic_and_preserves_all_input() -> None:
@@ -105,3 +105,17 @@ def test_heuristic_article_tag_neutral() -> None:
     )
     tag = _heuristic_article_tag(payload)
     assert tag.sentiment == "neutral"
+
+
+def test_foreign_lookalike_reliance_inc_excluded() -> None:
+    assert _is_foreign_lookalike("Reliance, Inc. Stock 12-Month Price Target Raised", "target $392")
+    assert _is_foreign_lookalike("Reliance Steel stock price target on strong earnings", "BMO raises")
+
+
+def test_foreign_lookalike_nyse_excluded() -> None:
+    assert _is_foreign_lookalike("Reliance Inc to list on NYSE", "cross-listing news")
+
+
+def test_foreign_lookalike_keeps_indian_articles() -> None:
+    assert not _is_foreign_lookalike("Reliance Industries Q1 results: Analysts turn bullish", "Nifty gains")
+    assert not _is_foreign_lookalike("TCS, Infosys shares rise on IT momentum", "sector rally")
