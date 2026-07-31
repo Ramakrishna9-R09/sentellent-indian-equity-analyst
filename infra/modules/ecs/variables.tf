@@ -9,6 +9,10 @@ variable "ecs_security_group_id" { type = string }
 variable "api_target_group_arn" { type = string }
 variable "web_target_group_arn" { type = string }
 variable "cloudfront_domain_name" { type = string }
+variable "enable_cloudfront" {
+  type    = bool
+  default = true
+}
 variable "database_endpoint" { type = string }
 variable "database_name" { type = string }
 variable "database_master_secret_arn" { type = string }

@@ -1,13 +1,15 @@
 locals {
+  app_scheme = var.enable_cloudfront ? "https" : "http"
+  app_url    = format("%s://%s", local.app_scheme, var.cloudfront_domain_name)
   common_environment = [
     { name = "ENVIRONMENT", value = var.environment },
     { name = "AWS_REGION", value = var.region },
     { name = "DATABASE_HOST", value = var.database_endpoint },
     { name = "DATABASE_PORT", value = "5432" },
     { name = "DATABASE_NAME", value = var.database_name },
-    { name = "WEB_APP_URL", value = format("https://%s", var.cloudfront_domain_name) },
-    { name = "GOOGLE_REDIRECT_URI", value = format("https://%s/api/auth/google/callback", var.cloudfront_domain_name) },
-    { name = "SESSION_COOKIE_SECURE", value = "true" },
+    { name = "WEB_APP_URL", value = local.app_url },
+    { name = "GOOGLE_REDIRECT_URI", value = format("%s/api/auth/google/callback", local.app_url) },
+    { name = "SESSION_COOKIE_SECURE", value = tostring(var.enable_cloudfront) },
     { name = "DEV_BYPASS_AUTH", value = "false" },
     { name = "NEWS_LOOKBACK_DAYS", value = "14" },
     { name = "NEWS_FEED_URLS", value = "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms,https://www.moneycontrol.com/rss/MCtopnews.xml" },
@@ -19,7 +21,8 @@ locals {
     { name = "GOOGLE_CLIENT_ID", valueFrom = format("%s:google_client_id::", var.application_secret_arn) },
     { name = "GOOGLE_CLIENT_SECRET", valueFrom = format("%s:google_client_secret::", var.application_secret_arn) },
     { name = "OPENAI_API_KEY", valueFrom = format("%s:openai_api_key::", var.application_secret_arn) },
-    { name = "GROQ_API_KEY", valueFrom = format("%s:groq_api_key::", var.application_secret_arn) }
+    { name = "GROQ_API_KEY", valueFrom = format("%s:groq_api_key::", var.application_secret_arn) },
+    { name = "SESSION_SECRET", valueFrom = format("%s:session_secret::", var.application_secret_arn) }
   ]
 }
 

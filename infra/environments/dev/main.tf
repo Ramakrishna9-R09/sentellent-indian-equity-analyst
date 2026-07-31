@@ -64,6 +64,7 @@ module "ecs" {
   api_target_group_arn       = module.edge.api_target_group_arn
   web_target_group_arn       = module.edge.web_target_group_arn
   cloudfront_domain_name     = module.edge.cloudfront_domain_name
+  enable_cloudfront          = var.enable_cloudfront
   database_endpoint          = module.data.database_endpoint
   database_name              = module.data.database_name
   database_master_secret_arn = module.data.database_master_secret_arn

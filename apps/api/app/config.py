@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     session_cookie_name: str = "sentellent_session"
     session_cookie_secure: bool = False
     session_ttl_hours: int = 168
+    session_secret: str = "change-me-session-secret"
 
     google_client_id: str | None = None
     google_client_secret: str | None = None

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import text
 
 from app.config import get_settings
@@ -33,6 +34,7 @@ app = FastAPI(
     lifespan=lifespan,
     description="Grounded, cited RAG research for NSE/BSE investors. Not investment advice.",
 )
+app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.web_app_url],
