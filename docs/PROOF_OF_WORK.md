@@ -77,11 +77,16 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 - Persona-aware re-ranking confirmed (TCS 68.37→73.46, RELIANCE 49.24→55.66 after persona change)
 - Feature snapshots patched live: `debt_to_equity` (RELIANCE 0.43, TCS 0.08) so the `avoid_high_debt`/`max_debt_to_equity=1.0` profile filter passes candidates
 
+### Final audit (2026-07-31) — live RDS table counts
+- `alembic_version=0002_article_signal_mentioned`, pgvector `0.8.1`
+- `stock: 5`, `source_document: 277`, `document_chunk: 285`, `fundamental_snapshot: 66`, `article_signal: 265`, `stock_signal_daily: 40`, `stock_feature_snapshot: 3`, `embedding_cache: 277`, `ingestion_job: 5`, `app_user: 1`, `investor_profile: 1`, `profile_fact: 17`, `answer_audit: 22`
+- Live `answer_audit` grows on every chat (22 audits) with `validation_status=validated`
+
 ### Unit tests (46 passing)
-`cd apps/api && python -m pytest -q` — settings(4), profiles(10), ingestion(11), agent(4), embeddings(4), cache(6), main(4), rate-limit(3).
+`cd apps/api && python -m pytest -q` — settings(4), profiles(10), ingestion(11), agent(4), embeddings(4), cache(6), main(4), rate-limit(3). Web `npm run typecheck` + `npm run build` green on CI.
 
 ### Pipeline
-`gh run list --limit 3` — CI + Deploy AWS green on `69dcb85`.
+`gh run list --limit 6` — CI + Deploy AWS green on `27f4b78` (latest), prior runs green on `69dcb85`, `c75c0c8`.
 
 ## Open blockers (external)
 
