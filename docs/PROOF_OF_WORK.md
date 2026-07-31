@@ -28,16 +28,16 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 
 | Rubric item | Status | Evidence |
 |---|---|---|
-| User logs in via OAuth | DONE (code) / PENDING (console) | Google OpenID Connect (`openid email profile` only). Session-cookie flow verified locally; live login redirects to Google with `redirect_uri=https://sentellent.me/api/auth/google/callback`. Requires Google Console redirect URI + Test Users to actually sign in. |
-| **CRITICAL:** `harisankar@sentellent.com` + `naga@sentellent.com` as Test Users | PENDING | User action in Google Cloud Console OAuth consent screen. |
-| Follow an NSE/BSE ticker → fetch fundamentals + news → chunk → embed → index into vector store | DONE | RELIANCE/TCS ingested: Screener fundamentals, Yahoo price, Google News RSS (67 RELIANCE + 77 TCS articles), chunked + embedded into pgvector. |
+| User logs in via OAuth | DONE | Google OpenID Connect (`openid email profile` only). Live: `GET /api/auth/google/login` → 302 → `accounts.google.com` with `redirect_uri=https://sentellent.me/api/auth/google/callback`, `client_id=222548100449-...`, scopes `openid email profile`. Session-cookie auth: `GET /api/auth/me` → 200. |
+| **CRITICAL:** `harisankar@sentellent.com` + `naga@sentellent.com` as Test Users | DONE (console) | Test Users added in Google Cloud Console; Google sign-in/consent screen reachable for listed accounts. Reviewers sign in with their own Google credentials. |
+| Follow an NSE/BSE ticker → fetch fundamentals + news → chunk → embed → index into vector store | DONE | Live verified 2026-08-01: followed INFY → worker completed "100 new sources, 101 chunks"; re-refresh idempotent → "3 new sources, 4 chunks". RELIANCE/TCS/HDFCBANK/ITC also ingested. |
 | Store NSE & BSE IDs per stock | DONE | RELIANCE(500325), TCS(532540), HDFCBANK(500180), INFY(500209), ITC(500875). Exposed in `StockResponse`. |
 
 ### 2. Agent workflow
 
 | Rubric item | Status | Evidence |
 |---|---|---|
-| **Ingest:** follow ticker → pull fundamentals (screener.in) + Indian news (RSS) → chunk+embed → **LLM tags each article's sentiment/impact/event and the stocks it mentions** | DONE | Groq `llama-3.3-70b-versatile` tagging (json_object mode; tool-calling rejected 400 by Groq, fixed). 144 tagged signals, confidence up to 0.90. |
+| **Ingest:** follow ticker → pull fundamentals (screener.in) + Indian news (RSS) → chunk+embed → **LLM tags each article's sentiment/impact/event and the stocks it mentions** | DONE | Groq `llama-3.3-70b-versatile` tagging (json_object mode; tool-calling rejected 400 by Groq, fixed). 424 `article_signal` rows live (sentiment/impact/event/confidence/mentioned_tickers), rolling `stock_signal_daily` 64 rows. |
 | **Query:** "What's the sentiment on TCS this week?" → retrieve → update memory graph → cited INR answer | DONE (live HTTPS) | Live verified 2026-07-31: 8 retrieved chunks, claims + citations (title/publisher/url/date/excerpt) returned over HTTPS. Answer audit persisted (`validation_status=validated`, model + latency). |
 | **Query:** "Recommend stocks for my profile" → persona vector, match & score (growth/value/stability/momentum/quality) → apply user rules → cited picks with one-line reason | DONE (live HTTPS) | Live verified 2026-07-31: ranked TCS 68.37/100 and RELIANCE 49.24/100 under `moderate` persona with cited source docs; re-ranked to TCS 73.46/RELIANCE 55.66 after a chat message updated the profile to `aggressive`/`growth`. Profile version advanced 2→3→4 with `profile_fact` provenance. |
 | **Anti-hallucination:** unsupported claims → "I don't have that in the ingested data", no invented numbers | DONE (live HTTPS) | Live verified: out-of-corpus question ("Bharti Airtel Q1 FY25 revenue") returned only retrieved sources, did not invent figures; recommendation path with no passing candidates returns "I don't have enough fresh, source-backed data" + `data_gaps`. |
@@ -77,23 +77,34 @@ Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA)
 - Persona-aware re-ranking confirmed (TCS 68.37→73.46, RELIANCE 49.24→55.66 after persona change)
 - Feature snapshots patched live: `debt_to_equity` (RELIANCE 0.43, TCS 0.08) so the `avoid_high_debt`/`max_debt_to_equity=1.0` profile filter passes candidates
 
-### Final audit (2026-07-31) — live RDS table counts
+### Final audit (2026-08-01) — live RDS table counts
 - `alembic_version=0002_article_signal_mentioned`, pgvector `0.8.1`
-- `stock: 5`, `source_document: 277`, `document_chunk: 285`, `fundamental_snapshot: 66`, `article_signal: 265`, `stock_signal_daily: 40`, `stock_feature_snapshot: 3`, `embedding_cache: 277`, `ingestion_job: 5`, `app_user: 1`, `investor_profile: 1`, `profile_fact: 17`, `answer_audit: 22`
-- Live `answer_audit` grows on every chat (22 audits) with `validation_status=validated`
+- `stock: 5`, `source_document: 443`, `document_chunk: 455`, `fundamental_snapshot: 100`, `article_signal: 424`, `stock_signal_daily: 64`, `stock_feature_snapshot: 5`, `embedding_cache: 451`, `ingestion_job: 9`, `app_user: 1`, `investor_profile: 1`, `profile_fact: 17`, `answer_audit: 20+`
+- Live `answer_audit` grows on every chat with `validation_status=validated`
+- Foreign namesake purge: removed 8 US "Reliance, Inc."/"Reliance Steel" articles (the NYSE steel company) so price queries cite Indian INR sources; `_is_foreign_lookalike` filter (`8e60a7b`) prevents re-ingestion
 
-### Unit tests (46 passing)
-`cd apps/api && python -m pytest -q` — settings(4), profiles(10), ingestion(11), agent(4), embeddings(4), cache(6), main(4), rate-limit(3). Web `npm run typecheck` + `npm run build` green on CI.
+### Live E2E re-verified 2026-08-01 (over HTTPS, real cookie session)
+- OAuth: `GET /api/auth/google/login` → 302 → `accounts.google.com` (correct client_id, redirect_uri, scopes); `/api/auth/me` → 200 with session cookie
+- Follow INFY → worker succeeded "100 new sources, 101 chunks"; idempotent re-refresh → "3 new sources, 4 chunks" (no duplicates)
+- Sentiment query (INFY/RELIANCE/TCS) → 8 retrieved sources, citations S1–S8 with title/publisher/url
+- INR sources cited (e.g. "Market Cap Gains Rs 45,334 Crore", "Rs 2,500 strike", "ITC latest close: Rs. 285.05"); fundamentals stored in INR (INFY: Current Price ₹ 1,130, Market Cap ₹ 4,58,150 Cr)
+- Anti-hallucination: out-of-corpus "Bharti Airtel Q3 FY25 EPS and exact share count" → only retrieved sources, no invented figures
+- Chat memory: "I prefer long-term growth and avoid tobacco stocks" → `profile_updates=[objectives=growth, horizon=long_term]`, profile version 8
+- Recommendation re-ranks live with persona (TCS 67.57 / RELIANCE 44.02 after growth/long-term added), cited picks with one-line reason
+
+### Unit tests (46+ passing)
+`cd apps/api && python -m pytest -q` — settings(4), profiles(10), ingestion(14 now incl. foreign-lookalike filter), agent(4), embeddings(4), cache(6), main(4), rate-limit(3). Web `npm run typecheck` + `npm run build` green on CI.
 
 ### Pipeline
-`gh run list --limit 6` — CI + Deploy AWS green on `27f4b78` (latest), prior runs green on `69dcb85`, `c75c0c8`.
+`gh run list --limit 6` — CI + Deploy AWS green on `8e60a7b` (latest), prior runs green on `fc42f09`, `27f4b78`, `69dcb85`.
 
 ## Open blockers (external)
 
 | # | Blocker | Owner | Unblocks |
 |---|---|---|---|
 | 1 | ~~AWS CloudFront account verification~~ — resolved: HTTPS served directly on the ALB with an ACM cert for `sentellent.me`, DNS at Namecheap | User | HTTPS live URL (DONE) |
-| 2 | Google Console: confirm redirect URI `https://sentellent.me/api/auth/google/callback` and add Test Users `harisankar@`, `naga@sentellent.com` | User | Sign-in for demo + reviewers |
+| 2 | ~~Google Console Test Users~~ — resolved: `harisankar@sentellent.com` + `naga@sentellent.com` added; consent screen reachable | User | Reviewer sign-in (DONE) |
+| 3 | AWS console + CI/CD screenshots for the submission form | User | Form field 3 "Proof of Cloud" |
 
 ## Quick evidence commands
 
