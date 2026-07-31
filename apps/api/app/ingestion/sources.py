@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import feedparser
 import httpx
@@ -128,7 +128,11 @@ class RSSNewsConnector:
         aliases.add(stock.company_name.split()[0].lower())
         cutoff = datetime.now(UTC) - timedelta(days=self.settings.news_lookback_days)
         payloads: list[SourcePayload] = []
-        for feed_url in self.settings.parsed_news_feed_urls:
+        search_feed = (
+            f"https://news.google.com/rss/search?q={quote(stock.symbol + ' stock')}"
+            f"%20when:{self.settings.news_lookback_days}d&hl=en-IN&gl=IN&ceid=IN:en"
+        )
+        for feed_url in [search_feed, *self.settings.parsed_news_feed_urls]:
             try:
                 response = httpx.get(
                     feed_url,

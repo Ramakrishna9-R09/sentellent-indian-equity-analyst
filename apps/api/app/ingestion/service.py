@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import Connection, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
@@ -39,6 +40,13 @@ class ArticleTag(BaseModel):
     event_type: str = Field(max_length=64)
     confidence: float = Field(ge=0, le=1)
     supporting_excerpt: str = Field(min_length=1, max_length=500)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def coerce_confidence(cls, value):
+        if isinstance(value, str):
+            return float(value)
+        return value
 
 
 def _utcnow() -> datetime:
@@ -113,16 +121,26 @@ def tag_article(payload: SourcePayload) -> ArticleTag:
                 api_key=settings.groq_api_key,
                 base_url=settings.groq_base_url,
                 temperature=0,
+                model_kwargs={"response_format": {"type": "json_object"}},
             )
         else:
             model = ChatOpenAI(
-                model=settings.openai_chat_model, api_key=settings.openai_api_key, temperature=0
+                model=settings.openai_chat_model,
+                api_key=settings.openai_api_key,
+                temperature=0,
+                model_kwargs={"response_format": {"type": "json_object"}},
             )
-        structured = model.with_structured_output(ArticleTag)
-        return structured.invoke(
-            "Classify this Indian-market article. Return only evidence-supported information. "
+        prompt = (
+            "Classify this Indian-market article. Return ONLY a JSON object with exactly these keys: "
+            "sentiment (one of positive|neutral|negative|mixed), impact (one of low|medium|high), "
+            "event_type (short label), confidence (a number between 0 and 1), "
+            "supporting_excerpt (a short quoted sentence from the article). "
             f"Title: {payload.title}\nContent: {payload.content[:6000]}"
         )
+        raw = model.invoke(prompt).content
+        start, end = raw.find("{"), raw.rfind("}")
+        data = json.loads(raw[start : end + 1])
+        return ArticleTag.model_validate(data)
     except Exception:
         return _heuristic_article_tag(payload)
 
