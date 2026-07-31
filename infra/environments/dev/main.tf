@@ -26,6 +26,7 @@ module "data" {
   private_subnet_ids    = module.network.private_subnet_ids
   rds_security_group_id = module.network.rds_security_group_id
   db_instance_class     = var.db_instance_class
+  db_engine_version     = var.db_engine_version
   multi_az              = var.enable_multi_az
   deletion_protection   = var.deletion_protection
 }

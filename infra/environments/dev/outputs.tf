@@ -1,5 +1,5 @@
 output "live_url" {
-  value = format("https://%s", module.edge.cloudfront_domain_name)
+  value = format("%s://%s", var.enable_cloudfront ? "https" : "http", module.edge.cloudfront_domain_name)
 }
 
 output "ecr_api_repository" { value = module.registry.api_url }

@@ -18,7 +18,8 @@ locals {
     { name = "DATABASE_PASSWORD", valueFrom = format("%s:password::", var.database_master_secret_arn) },
     { name = "GOOGLE_CLIENT_ID", valueFrom = format("%s:google_client_id::", var.application_secret_arn) },
     { name = "GOOGLE_CLIENT_SECRET", valueFrom = format("%s:google_client_secret::", var.application_secret_arn) },
-    { name = "OPENAI_API_KEY", valueFrom = format("%s:openai_api_key::", var.application_secret_arn) }
+    { name = "OPENAI_API_KEY", valueFrom = format("%s:openai_api_key::", var.application_secret_arn) },
+    { name = "GROQ_API_KEY", valueFrom = format("%s:groq_api_key::", var.application_secret_arn) }
   ]
 }
 

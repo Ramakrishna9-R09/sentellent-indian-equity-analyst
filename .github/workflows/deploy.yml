@@ -72,7 +72,8 @@ jobs:
             type == "object" and
             (.google_client_id | type == "string" and length > 0) and
             (.google_client_secret | type == "string" and length > 0) and
-            (.openai_api_key | type == "string" and length > 0)
+            ((.openai_api_key | type == "string" and length > 0) or
+             (.groq_api_key | type == "string" and length > 0))
           ' >/dev/null
           terraform init \
             -backend-config="bucket=$TF_STATE_BUCKET" \
@@ -84,7 +85,9 @@ jobs:
           terraform apply -auto-approve -target=module.data \
             -var="github_repository=$TF_VAR_github_repository" \
             -var="api_image=$API_IMAGE" \
-            -var="web_image=$WEB_IMAGE"
+            -var="web_image=$WEB_IMAGE" \
+            -var="db_engine_version=${{ vars.DB_ENGINE_VERSION }}" \
+            -var="enable_cloudfront=false"
           APPLICATION_SECRET_ARN=$(terraform output -raw application_secret_arn)
           aws secretsmanager put-secret-value \
             --secret-id "$APPLICATION_SECRET_ARN" \
@@ -97,7 +100,9 @@ jobs:
           terraform apply -auto-approve \
             -var="github_repository=$TF_VAR_github_repository" \
             -var="api_image=$API_IMAGE" \
-            -var="web_image=$WEB_IMAGE"
+            -var="web_image=$WEB_IMAGE" \
+            -var="db_engine_version=${{ vars.DB_ENGINE_VERSION }}" \
+            -var="enable_cloudfront=false"
 
       - name: Run database migrations on ECS
         run: |

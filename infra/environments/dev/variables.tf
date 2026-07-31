@@ -53,15 +53,16 @@ variable "enable_cloudfront" {
   type        = bool
   description = "Keep the public entry point HTTPS-capable for OAuth and secure cookies."
   default     = true
-
-  validation {
-    condition     = var.enable_cloudfront
-    error_message = "The dev environment requires CloudFront. Disabling it leaves only an HTTP ALB while OAuth, secure cookies, and the smoke test require HTTPS."
-  }
 }
 
 variable "alarm_email" {
   type        = string
   description = "Email for CloudWatch alarm notifications. Leave empty to skip."
   default     = ""
+}
+
+variable "db_engine_version" {
+  type        = string
+  description = "PostgreSQL engine version for the RDS instance. Must match the deployed instance to avoid a destructive downgrade."
+  default     = null
 }

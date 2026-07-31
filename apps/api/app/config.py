@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     openai_embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
 
+    groq_api_key: str | None = None
+    groq_chat_model: str = "llama-3.3-70b-versatile"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+
     source_user_agent: str = "SentellentAssessmentBot/1.0"
     news_feed_urls: str = ""
     news_lookback_days: int = 14

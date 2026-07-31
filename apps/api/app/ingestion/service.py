@@ -102,12 +102,22 @@ def _heuristic_article_tag(payload: SourcePayload) -> ArticleTag:
 
 def tag_article(payload: SourcePayload) -> ArticleTag:
     """Use a structured LLM when configured, with a deterministic safe fallback for local work."""
-    if not settings.openai_api_key:
+    if not settings.openai_api_key and not settings.groq_api_key:
         return _heuristic_article_tag(payload)
     try:
         from langchain_openai import ChatOpenAI
 
-        model = ChatOpenAI(model=settings.openai_chat_model, api_key=settings.openai_api_key, temperature=0)
+        if settings.groq_api_key:
+            model = ChatOpenAI(
+                model=settings.groq_chat_model,
+                api_key=settings.groq_api_key,
+                base_url=settings.groq_base_url,
+                temperature=0,
+            )
+        else:
+            model = ChatOpenAI(
+                model=settings.openai_chat_model, api_key=settings.openai_api_key, temperature=0
+            )
         structured = model.with_structured_output(ArticleTag)
         return structured.invoke(
             "Classify this Indian-market article. Return only evidence-supported information. "
