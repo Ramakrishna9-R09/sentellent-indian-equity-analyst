@@ -52,6 +52,7 @@ resource "aws_iam_role_policy" "github_deploy" {
     Statement = [{
       Effect = "Allow"
       Action = [
+        "acm:*",
         "application-autoscaling:*",
         "cloudfront:*",
         "cloudwatch:*",
