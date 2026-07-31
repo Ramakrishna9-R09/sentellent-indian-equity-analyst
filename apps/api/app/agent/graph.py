@@ -195,11 +195,13 @@ def _compose(state: ResearchState) -> ResearchState:
         citation_for_source = {str(item["source_document_id"]): item["id"] for item in citations}
         rendered_recommendations: list[dict[str, Any]] = []
         for candidate in state.get("recommendations", []):
-            citation_ids = [
-                citation_for_source[source_id]
-                for source_id in candidate["source_ids"]
-                if source_id in citation_for_source
-            ]
+            citation_ids = list(
+                dict.fromkeys(
+                    citation_for_source[source_id]
+                    for source_id in candidate["source_ids"]
+                    if source_id in citation_for_source
+                )
+            )
             if not citation_ids:
                 continue
             rendered_recommendations.append(
