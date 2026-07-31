@@ -1,82 +1,91 @@
-# Sentellent - Proof of Work & Evidence Map
+# Sentellent - Proof of Work mapped to the challenge rubric
 
-Live status doc for the Aug 5 submission. Every item maps to verified evidence, a screenshot, or a command a reviewer can re-run. **Status legend:** DONE = verified/committed | BLOCKED = waiting on external party | PENDING = not started.
+Live status doc for the Aug 5, 11:59 PM submission (forms.gle/qWxabTxLjEkJ2LcEA). Each rubric requirement maps to verified evidence, a screenshot, or a re-runnable command. **Legend:** DONE = verified/committed | BLOCKED = waiting on external party | PENDING = not started.
 
-## 1. Live application
+## Submission checklist (Google Form)
 
-| # | Claim | Status | Evidence |
+| # | Form field | Status | Evidence |
 |---|---|---|---|
-| 1.1 | Public HTTP app is live | DONE | ALB `http://sentellent-equity-analyst-dev-al-157660511.ap-south-1.elb.amazonaws.com` — `/health`, `/ready`, `/` all return 200. |
-| 1.2 | Public HTTPS app (CloudFront) | BLOCKED | `aws cloudfront create-distribution` fails with `AccessDenied: Your account must be verified before you can add new CloudFront resources`. AWS support case submitted; awaiting account verification. Once verified, flip `ENABLE_CLOUDFRONT=true` and re-run Deploy AWS. |
-| 1.3 | RDS PostgreSQL + pgvector available | DONE | `sentellent-equity-analyst-dev-rag.cf064ki6yt4a.ap-south-1.rds.amazonaws.com` — status `available`, engine PostgreSQL `18.3`. |
-| 1.4 | Live ingestion has real data | DONE | Live DB: 5 seed stocks (HDFCBANK, INFY, ITC, RELIANCE, TCS). News ingestion exercises on live follow. |
+| 1 | GitHub Repo Link | DONE | `https://github.com/Ramakrishna9-R09/sentellent-indian-equity-analyst` — frontend (`apps/web`), backend (`apps/api`), Dockerfiles, Terraform, workflows, migrations, tests, docs. |
+| 2 | Live Application URL | DONE (HTTP) / BLOCKED (HTTPS) | Live ALB: `http://sentellent-equity-analyst-dev-al-157660511.ap-south-1.elb.amazonaws.com` — `/health`, `/ready`, `/` all 200. HTTPS (CloudFront) blocked on AWS account verification (see 5.1). |
+| 3 | Proof of Cloud | DONE (CI/CD) / PENDING (console shots) | CI + Deploy AWS green on HEAD `c266b57`. AWS console screenshots to be captured after HTTPS resolves for the "final" state; interim ECS/RDS/ECR screenshots available. |
 
-## 2. Local stack (recording fallback while HTTPS is blocked)
+**Bonus (submit by Aug 3):** on track — core is done; remaining work is external verification + screenshots.
 
-All verified 2026-07-31 against `docker compose` (postgres healthy, api:8000, web:3000, worker).
+## Core requirement: RAG + Dynamic Memory (LangGraph)
 
-| # | Claim | Status | Evidence |
-|---|---|---|---|
-| 2.1 | Ingestion pulls 3 source types | DONE | RELIANCE + TCS ingested: Screener fundamentals, Yahoo Finance price, Google News RSS search feed (per-stock, query-driven). |
-| 2.2 | News pipeline returns real articles | DONE | 67 RELIANCE + 77 TCS news `source_document` rows from `news.google.com/rss/search?q=<SYMBOL>+stock+when:14d`. |
-| 2.3 | Groq LLM article tagging works | DONE | `tag_article` uses Groq `llama-3.3-70b-versatile` via `json_object` response format (tool-calling is rejected 400 by Groq for this model). 144 `article_signal` rows, confidence up to 0.90. |
-| 2.4 | Chunks + embeddings stored | DONE | 72 `document_chunk` rows with pgvector embeddings (deterministic fallback model when no embedding key is set — documented design). |
-| 2.5 | RAG research question with citations | DONE | `POST /api/chat/threads/{id}/messages` "What is the sentiment on TCS this week?" -> 8 retrieved sources, claims + citations with title/publisher/url/published_at/excerpt. |
-| 2.6 | Recommendation intent + hard profile rules | DONE | "Which followed stock should I buy?" -> ranked candidate (RELIANCE 38.44/100) with cited rationale; citation IDs deduped. |
-| 2.7 | Answer audit persisted | DONE | `answer_audit` row: `validation_status=validated`, model + latency recorded. |
-| 2.8 | Auth session cookie flow works | DONE | Created session via `create_session`, exercised all chat endpoints over HTTP with cookie `sentellent_session`. |
-
-## 3. Pipeline (GitHub Actions)
-
-| # | Claim | Status | Evidence |
-|---|---|---|---|
-| 3.1 | CI green on HEAD | DONE | Run `30632082861` success on `3e36958` (46 tests pass, terraform fmt/validate, images build). Note: earlier failure was transient `registry.terraform.io` network timeout, re-run green. |
-| 3.2 | Deploy AWS green on HEAD | DONE | Run `30632082863` success on `3e36958` (ECR push, terraform apply, alembic migration task, ECS rollout, live smoke test). |
-| 3.3 | Deployment is OIDC-only | DONE | `.github/workflows/deploy.yml` + `infra/modules/iam` OIDC trust; no long-lived AWS keys in GitHub. |
-| 3.4 | CloudFront flag wired for pipeline | DONE | `ENABLE_CLOUDFRONT` repo var drives `-var="enable_cloudfront=..."`; set to `false` until AWS verification lands. |
-
-## 4. Unit test coverage (46 tests)
-
-`apps/api/app/tests/` — run with `cd apps/api && python -m pytest -q`.
-
-| Area | Tests |
-|---|---|
-| Settings/config | `test_config.py` (4) |
-| Profile memory | `test_profiles.py` (10) |
-| Ingestion (chunker, INR normalization, sentiment, heuristics) | `test_ingestion.py` (11) |
-| Agent/citations/intent | `test_agent.py` (4) |
-| Embeddings deterministic fallback | `test_embeddings.py` (4) |
-| Cache | `test_cache.py` (6) |
-| Health/API | `test_main.py` (4) |
-| Rate limit | `test_rate_limit.py` (3) |
-
-## 5. Demo script coverage (docs/DEMO_SCRIPT.md)
-
-| Demo step | Status | Where it is proven |
+| Rubric item | Status | Evidence |
 |---|---|---|
-| 1. Sign in with Google Test User | PENDING | Needs `http://localhost:8000/api/auth/google/callback` (local) or `https://<dist>.cloudfront.net/...` (live) registered in Google Console + Test Users added. Session-cookie auth itself verified (2.8). |
-| 2. Search + follow RELIANCE/TCS | DONE local | Follows created for RELIANCE + TCS; ingestion job -> succeeded. |
-| 3. Ingestion status + open source record | DONE local | 144 source rows; `GET /api/sources/{id}` works. |
-| 4. "Sentiment on TCS this week?" + citations | DONE local | 8 cited sources returned (2.5). |
-| 5. "I am a conservative, dividend-focused investor..." | DONE local | Profile extraction verified by `test_profiles.py` (10 tests). |
-| 6. Profile page shows sourced memory fact | PENDING | Needs UI login; profile backend verified. |
-| 7. Profile-matched recommendation + exclusions + INR | DONE local | 2.6; INR formatting + hard debt rule verified in code/tests. |
-| 8. GitHub Actions + AWS screenshots | DONE | 3.1–3.3; AWS console screenshots pending HTTPS for the "final" state. |
+| **From Chat** — "I'm a conservative, dividend-focused investor and I avoid high-debt companies" updates investor persona memory | DONE | `extract_profile_patch` writes typed facts with chat provenance (`profile_fact`, versioned). 10 tests in `test_profiles.py` (conservative/income/avoid-debt extraction). |
+| **From Data (RAG ingest)** — ingesting an article auto-extracts sentiment/impact/event + mentioned stocks, embeds it, updates rolling sentiment without being told | DONE | `tag_article` (Groq `json_object`, deterministic fallback) → `article_signal` + idempotent `stock_signal_daily` upsert. `mentioned_tickers` now extracted (live: `['RELIANCE','TCS','INFY']`). |
+| **Retrieval (grounded + cited)** — "What should I buy this week?" screens high-debt names, returns cited picks in INR | DONE | Recommendation graph: profile hard rules (`max_debt_to_equity`, `avoid_high_debt`) filter before deterministic scoring; answer cites source docs; INR formatting. Live verified. |
+| **From Scale — efficient retrieval & ranking** — cache/reuse embeddings, dedupe overlapping news, rank with testable logic (not one LLM call per stock) | DONE | Content-addressed `embedding_cache` (sha256+model), source fingerprints, chunk-hash dedupe, deterministic `_rank_candidates` score (no per-stock LLM). |
+| **From Scale — robust concurrent ingestion** — two jobs for same ticker must be idempotent, no duplicate indexing / race | DONE | Unique active-job index, `pg_try_advisory_lock(hashtext(stock_id))`, `INSERT ON CONFLICT`, unique fingerprints, `SELECT FOR UPDATE SKIP LOCKED`. Verified by design + code. |
 
-## 6. Open blockers
+## Feature checklist
 
-1. **AWS CloudFront account verification** — support case submitted; response to `pavankumarchowdary9010@gmail.com` or Support Center. Until verified, HTTPS is impossible on this account (verified again 2026-07-31: still `AccessDenied`).
-2. **Google Console redirect URIs** — need `http://localhost:8000/api/auth/google/callback` added now (for local recording) and `https://<dist>.cloudfront.net/api/auth/google/callback` after CloudFront. Test Users `harisankar@sentellent.com`, `naga@sentellent.com` must be on the consent screen.
-3. **Secrets** — Secrets Manager `sentellent-equity-analyst-dev/application` holds real Google/Groq values; OpenAI key empty (deterministic embedding fallback is the documented non-production path).
+### 1. Authentication & stock ingestion
 
-## 7. Quick evidence commands
+| Rubric item | Status | Evidence |
+|---|---|---|
+| User logs in via OAuth | DONE (code) / PENDING (console) | Google OpenID Connect (`openid email profile` only). Session-cookie flow verified over HTTP locally. Requires Google Console redirect URI + Test Users to actually sign in. |
+| **CRITICAL:** `harisankar@sentellent.com` + `naga@sentellent.com` as Test Users | PENDING | User action in Google Cloud Console OAuth consent screen. |
+| Follow an NSE/BSE ticker → fetch fundamentals + news → chunk → embed → index into vector store | DONE | RELIANCE/TCS ingested: Screener fundamentals, Yahoo price, Google News RSS (67 RELIANCE + 77 TCS articles), chunked + embedded into pgvector. |
+| Store NSE & BSE IDs per stock | DONE | RELIANCE(500325), TCS(532540), HDFCBANK(500180), INFY(500209), ITC(500875). Exposed in `StockResponse`. |
+
+### 2. Agent workflow
+
+| Rubric item | Status | Evidence |
+|---|---|---|
+| **Ingest:** follow ticker → pull fundamentals (screener.in) + Indian news (RSS) → chunk+embed → **LLM tags each article's sentiment/impact/event and the stocks it mentions** | DONE | Groq `llama-3.3-70b-versatile` tagging (json_object mode; tool-calling rejected 400 by Groq, fixed). 144 tagged signals, confidence up to 0.90. |
+| **Query:** "What's the sentiment on TCS this week?" → retrieve → update memory graph → cited INR answer | DONE | Live over HTTP: 8 retrieved sources, claims + citations (title/publisher/url/date/excerpt). Answer audit persisted (`validation_status=validated`). |
+| **Query:** "Recommend stocks for my profile" → persona vector, match & score (growth/value/stability/momentum/quality) → apply user rules → cited picks with one-line reason | DONE | Persona embedding written on profile update (`profiles.py`); deterministic weighted scorer + hard exclusions; cited one-line rationale. Live verified (RELIANCE 38.44/100). |
+| **Anti-hallucination:** unsupported claims → "I don't have that in the ingested data", no invented numbers | DONE | `_compose` data-gap response + `_validate` rejects uncited claims (`validation_status` in `answer_audit`). |
+
+### 3. Infrastructure & DevOps
+
+| Rubric item | Status | Evidence |
+|---|---|---|
+| Dockerized application | DONE | `docker-compose.yml` (postgres/api/web/worker) + `docker/*.Dockerfile`. Local stack running and verified. |
+| Terraform provisions resources incl. vector store | DONE | `infra/modules/{network,data,registry,ecs,edge,scheduler,observability,iam}`; RDS PostgreSQL + pgvector (`db_engine_version=18.3`). |
+| CI/CD auto-deploy on push to main | DONE | `.github/workflows/{ci,deploy}.yml` — OIDC auth, image build/push to ECR, Terraform apply, Alembic migration task, ECS rollout, live smoke test. Green on HEAD. |
+| Scheduled refresh worker (cron) | DONE | EventBridge schedule → ECS RunTask worker (`infra/modules/scheduler`); worker also polls follow-triggered jobs. |
+
+## Phase coverage (recommended build path)
+
+| Phase | Coverage | Status |
+|---|---|---|
+| Phase 1 — Foundation | RAG chat live on AWS, one NSE stock ingested, one grounded cited INR answer | DONE (HTTP live; HTTPS pending verification) |
+| Phase 2 — Integration | fundamentals + news RSS, chunk/embed/index, LLM per-stock tagging, retrieval + citation tools, cron refresh | DONE |
+| Phase 3 — The Brain | persona memory from chat, persona vector, match/score to persona, anti-hallucination, INR correctness | DONE |
+
+## Evidence bank
+
+### Live/local data verified 2026-07-31
+- 5 seed stocks with NSE/BSE IDs; 144 `source_document` news rows + fundamentals + price rows
+- 72 `document_chunk` rows with pgvector embeddings (deterministic fallback model — documented non-production path without an embedding key)
+- 144 `article_signal` rows (sentiment/impact/event/confidence/mentioned_tickers); `stock_signal_daily` aggregates
+- `answer_audit` rows: `validation_status=validated`, model + latency recorded
+- RDS live: `sentellent-equity-analyst-dev-rag.cf064ki6yt4a.ap-south-1.rds.amazonaws.com` available, PostgreSQL 18.3
+
+### Unit tests (46 passing)
+`cd apps/api && python -m pytest -q` — settings(4), profiles(10), ingestion(11), agent(4), embeddings(4), cache(6), main(4), rate-limit(3).
+
+### Pipeline
+`gh run list --limit 3` — CI + Deploy AWS green on `c266b57`.
+
+## Open blockers (external)
+
+| # | Blocker | Owner | Unblocks |
+|---|---|---|---|
+| 1 | AWS CloudFront account verification (`AccessDenied: ... account must be verified ... contact AWS Support`) | User checks AWS Support Center/inbox; support case submitted | HTTPS live URL |
+| 2 | Google Console: add redirect URI `http://localhost:8000/api/auth/google/callback` (+ `https://<dist>.cloudfront.net/...` later) and Test Users `harisankar@`, `naga@sentellent.com` | User | Sign-in for demo + reviewers |
+
+## Quick evidence commands
 
 ```sh
-# live app
 curl -s http://sentellent-equity-analyst-dev-al-157660511.ap-south-1.elb.amazonaws.com/health
-# local stack
 docker compose up --build
 cd apps/api && python -m pytest -q
-# pipeline
 gh run list --limit 3
 ```
